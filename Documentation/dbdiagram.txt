@@ -1,0 +1,42 @@
+// Portfolio Manager ERD
+// Define tables and relationships
+// https://dbdiagram.io/d
+
+
+Table stocks {
+  id integer [primary key]
+  symbol varchar [unique, not null]
+  name varchar
+  current_price decimal
+}
+
+Table portfolios {
+  id integer [primary key]
+  name varchar
+  description text
+}
+
+Table holdings {
+  id integer [primary key]
+  portfolio_id integer [not null]
+  stock_id integer [not null]
+  quantity integer
+  avg_buy_price decimal
+}
+
+Table transactions {
+  id integer [primary key]
+  stock_id integer [not null]
+  portfolio_id integer [not null]
+  type varchar [note: 'BUY or SELL']
+  quantity integer
+  price decimal
+  timestamp timestamp
+}
+
+// Relationships
+Ref: holdings.portfolio_id > portfolios.id
+Ref: holdings.stock_id > stocks.id
+
+Ref: transactions.portfolio_id > portfolios.id
+Ref: transactions.stock_id > stocks.id
