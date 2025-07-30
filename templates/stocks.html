@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Stocks - Portfolio Manager{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Stocks</h1>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Company Name</th>
+                        <th>Current Price</th>
+                        <th>Total Shares Held</th>
+                        <th>Total Value Held</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stock in stocks %}
+                    <tr>
+                        <td><strong>{{ stock.symbol }}</strong></td>
+                        <td>{{ stock.name }}</td>
+                        <td class="profit">${{ "%.2f"|format(stock.current_price) }}</td>
+                        <td>
+                            {% if stock.total_shares_held > 0 %}
+                                <span class="badge bg-primary">{{ stock.total_shares_held }}</span>
+                            {% else %}
+                                <span class="text-muted">0</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if stock.total_value_held > 0 %}
+                                <span class="profit">${{ "%.2f"|format(stock.total_value_held) }}</span>
+                            {% else %}
+                                <span class="text-muted">$0.00</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

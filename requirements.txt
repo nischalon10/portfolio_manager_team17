@@ -1,6 +1,9 @@
 # Portfolio Manager Dependencies
 # Core packages for database operations and data analysis
 
+# Web Framework
+flask>=2.3.0
+
 # Database
 # No external dependencies needed for sqlite3 (built into Python)
 
