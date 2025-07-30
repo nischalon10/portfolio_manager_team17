@@ -1,4 +1,8 @@
-# Python
+# ================================
+# PORTFOLIO MANAGER - FULL STACK
+# ================================
+
+# Python Backend
 __pycache__/
 *.py[cod]
 *$py.class
@@ -29,12 +33,34 @@ ENV/
 env.bak/
 venv.bak/
 .venv/
+backend/__pycache__/
+backend/.env
+backend/venv/
 
-# Database files
-*.db
-*.sqlite
-*.sqlite3
-portfolio_manager.db
+# Database files (preserve main database)
+*.db-journal
+*.sqlite-journal
+backend/*.db
+backend/*.sqlite
+backend/*.sqlite3
+
+# Node.js Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+package-lock.json
+
+# React/Vite Frontend Build
+frontend/dist/
+frontend/build/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+frontend/.vite/
 
 # IDE/Editor files
 .vscode/
@@ -42,16 +68,12 @@ portfolio_manager.db
 *.swp
 *.swo
 *~
+.DS_Store
 
 # macOS
-.DS_Store
 .AppleDouble
 .LSOverride
-
-# Thumbnails
 ._*
-
-# Files that might appear in the root of a volume
 .DocumentRevisions-V100
 .fseventsd
 .Spotlight-V100
@@ -59,42 +81,18 @@ portfolio_manager.db
 .Trashes
 .VolumeIcon.icns
 .com.apple.timemachine.donotpresent
-
-# Directories potentially created on remote AFP share
 .AppleDB
 .AppleDesktop
 Network Trash Folder
 Temporary Items
 .apdisk
 
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# pyenv
-.python-version
-
-# pipenv
-Pipfile.lock
-
-# poetry
-poetry.lock
-
-# Environments
+# Environment Variables
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-
-# pytest
-.pytest_cache/
-.coverage
-htmlcov/
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
 
 # Logs
 *.log
@@ -104,9 +102,18 @@ logs/
 *.tmp
 *.temp
 
-# CSV exports (optional - remove if you want to track CSV files)
-*_export.csv
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
 # OS generated files
 Thumbs.db
 ehthumbs.db
+
+# Deployment
+.vercel
+.netlify

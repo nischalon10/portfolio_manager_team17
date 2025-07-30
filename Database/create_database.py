@@ -15,6 +15,7 @@ def create_database():
     cursor.execute('DROP TABLE IF EXISTS portfolios')
     cursor.execute('DROP TABLE IF EXISTS stocks')
     cursor.execute('DROP TABLE IF EXISTS account_balance')
+    cursor.execute('DROP TABLE IF EXISTS net_worth_history')
     
     # Create stocks table
     cursor.execute('''
@@ -33,6 +34,19 @@ def create_database():
             user_id INTEGER DEFAULT 1,
             balance DECIMAL(15,2) DEFAULT 100000.00,
             last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Create net worth history table
+    cursor.execute('''
+        CREATE TABLE net_worth_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER DEFAULT 1,
+            date DATE NOT NULL,
+            account_balance DECIMAL(15,2),
+            portfolio_value DECIMAL(15,2),
+            total_net_worth DECIMAL(15,2),
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
@@ -125,53 +139,8 @@ def create_database():
     
     print("Initial account balance set to $100,000!")
     
-    # Insert sample data into holdings table
-    # Generate realistic holdings data
-    holdings_data = []
-    for portfolio_id in range(1, 11):  # 10 portfolios
-        # Each portfolio will have 3-5 different stock holdings
-        num_holdings = random.randint(3, 5)
-        selected_stocks = random.sample(range(1, 11), num_holdings)
-        
-        for stock_id in selected_stocks:
-            quantity = random.randint(10, 500)
-            avg_buy_price = round(random.uniform(50, 300), 2)
-            holdings_data.append((portfolio_id, stock_id, quantity, avg_buy_price))
-    
-    cursor.executemany('''
-        INSERT INTO holdings (portfolio_id, stock_id, quantity, avg_buy_price) 
-        VALUES (?, ?, ?, ?)
-    ''', holdings_data)
-    
-    print(f"Sample holdings data inserted! ({len(holdings_data)} records)")
-    
-    # Insert sample data into transactions table
-    transactions_data = []
-    
-    # Generate transactions for the past 30 days
-    base_date = datetime.now() - timedelta(days=30)
-    
-    for i in range(50):  # 50 transactions
-        portfolio_id = random.randint(1, 10)
-        stock_id = random.randint(1, 10)
-        transaction_type = random.choice(['BUY', 'SELL'])
-        quantity = random.randint(1, 100)
-        price = round(random.uniform(50, 350), 2)
-        
-        # Random date within the last 30 days
-        random_days = random.randint(0, 30)
-        random_hours = random.randint(0, 23)
-        random_minutes = random.randint(0, 59)
-        timestamp = base_date + timedelta(days=random_days, hours=random_hours, minutes=random_minutes)
-        
-        transactions_data.append((stock_id, portfolio_id, transaction_type, quantity, price, timestamp))
-    
-    cursor.executemany('''
-        INSERT INTO transactions (stock_id, portfolio_id, type, quantity, price, timestamp) 
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', transactions_data)
-    
-    print("Sample transactions data inserted!")
+    # Note: Holdings, transactions, and net worth history tables are created but empty
+    # This allows you to start fresh and create data through the application
     
     # Display some statistics
     cursor.execute('SELECT COUNT(*) FROM stocks')
@@ -186,14 +155,18 @@ def create_database():
     cursor.execute('SELECT COUNT(*) FROM transactions')
     transactions_count = cursor.fetchone()[0]
     
+    cursor.execute('SELECT COUNT(*) FROM net_worth_history')
+    networth_count = cursor.fetchone()[0]
+    
     cursor.execute('SELECT balance FROM account_balance WHERE user_id = 1')
     account_balance = cursor.fetchone()[0]
     
     print("\n=== Database Creation Summary ===")
     print(f"Stocks: {stock_count} records")
     print(f"Portfolios: {portfolio_count} records")
-    print(f"Holdings: {holdings_count} records")
-    print(f"Transactions: {transactions_count} records")
+    print(f"Holdings: {holdings_count} records (empty - ready for testing)")
+    print(f"Transactions: {transactions_count} records (empty - ready for testing)")
+    print(f"Net Worth History: {networth_count} records (empty - will be created automatically)")
     print(f"Account Balance: ${account_balance:.2f}")
     
     # Commit changes and close connection
@@ -201,7 +174,8 @@ def create_database():
     conn.close()
     
     print("\nDatabase 'portfolio_manager.db' created successfully!")
-    print("You can now use this database with any SQLite client or Python application.")
+    print("The database has stocks and portfolios ready for testing.")
+    print("Holdings and transactions will be created when you use the application.")
 
 def display_sample_data():
     """Display some sample data from the created database"""
@@ -222,29 +196,25 @@ def display_sample_data():
     for row in cursor.fetchall():
         print(f"  {row[1]}: {row[2]}")
     
-    # Show sample holdings with joined data
-    print("\nSample Holdings:")
-    cursor.execute('''
-        SELECT p.name, s.symbol, h.quantity, h.avg_buy_price
-        FROM holdings h
-        JOIN portfolios p ON h.portfolio_id = p.id
-        JOIN stocks s ON h.stock_id = s.id
-        LIMIT 5
-    ''')
-    for row in cursor.fetchall():
-        print(f"  {row[0]}: {row[2]} shares of {row[1]} @ ${row[3]}")
+    # Show account balance
+    print("\nAccount Balance:")
+    cursor.execute('SELECT balance FROM account_balance WHERE user_id = 1')
+    balance = cursor.fetchone()
+    if balance:
+        print(f"  Current Balance: ${balance[0]:.2f}")
     
-    # Show sample transactions
-    print("\nRecent Transactions (last 5):")
-    cursor.execute('''
-        SELECT t.type, s.symbol, t.quantity, t.price, t.timestamp
-        FROM transactions t
-        JOIN stocks s ON t.stock_id = s.id
-        ORDER BY t.timestamp DESC
-        LIMIT 5
-    ''')
-    for row in cursor.fetchall():
-        print(f"  {row[0]} {row[2]} {row[1]} @ ${row[3]} on {row[4]}")
+    # Show that relationship tables are empty
+    cursor.execute('SELECT COUNT(*) FROM holdings')
+    holdings_count = cursor.fetchone()[0]
+    cursor.execute('SELECT COUNT(*) FROM transactions')
+    transactions_count = cursor.fetchone()[0]
+    cursor.execute('SELECT COUNT(*) FROM net_worth_history')
+    networth_count = cursor.fetchone()[0]
+    
+    print(f"\nRelationship Tables (ready for testing):")
+    print(f"  Holdings: {holdings_count} records")
+    print(f"  Transactions: {transactions_count} records") 
+    print(f"  Net Worth History: {networth_count} records")
     
     conn.close()
 

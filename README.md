@@ -1,113 +1,173 @@
-# Portfolio Manager
+# Portfolio Manager - Full Stack Application
 
-A Python-based portfolio management system with SQLite database for tracking stocks, portfolios, holdings, and transactions.
+A modern portfolio management application built with Flask (backend) and React TypeScript (frontend).
 
-## Setup
+## 🏗️ Architecture
 
-### Prerequisites
-- Python 3.8 or higher
-- Git
-
-### Installation
-
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd portfolio_manager_team17
+```
+portfolio_manager_team17/
+├── backend/              # Flask REST API
+│   ├── app.py           # Main API server
+│   └── requirements.txt # Python dependencies
+├── frontend/            # React TypeScript app
+│   ├── src/             # Source code
+│   ├── package.json     # Node dependencies
+│   └── vite.config.ts   # Build configuration
+├── Database/            # SQLite database
+│   └── portfolio_manager.db
+├── Documentation/       # Project documentation
+└── start.sh            # Quick start script
 ```
 
-2. Create and activate a virtual environment:
-```bash
-# Create virtual environment
-python3 -m venv venv
+## 🚀 Quick Start
 
-# Activate virtual environment
-# On macOS/Linux:
-source venv/bin/activate
-# On Windows:
-venv\Scripts\activate
+### Option 1: Automated Start
+```bash
+./start.sh
 ```
 
-3. Install dependencies:
+### Option 2: Manual Start
+
+**Backend (Terminal 1):**
 ```bash
-pip install --upgrade pip
+cd backend
 pip install -r requirements.txt
+python app.py
 ```
 
-### Usage
-
-1. **Create and populate the database:**
+**Frontend (Terminal 2):**
 ```bash
-python create_database.py
+cd frontend
+npm install
+npm start
 ```
-This will create `portfolio_manager.db` with sample data including:
-- 10 stocks with current market prices
-- 10 different portfolio types
-- Random holdings across portfolios
-- 50 sample transactions
 
-2. **Verify database structure and contents:**
+## 📱 Access Points
+
+- **Frontend Application**: http://localhost:3000
+- **Backend API**: http://localhost:5001
+
+## ✨ Features
+
+### 📊 Dashboard
+- Portfolio overview with interactive charts
+- Net worth history visualization  
+- Recent transactions summary
+- Account balance tracking
+
+### 💼 Portfolio Management
+- View all portfolios with performance metrics
+- Detailed portfolio breakdowns
+- Holdings analysis with profit/loss
+- Portfolio-specific transaction history
+
+### 📈 Stock Trading
+- Browse and search all available stocks
+- Real-time stock details and holdings
+- Buy/Sell functionality with validation
+- Transaction history per stock
+
+### 📋 Transaction History
+- Complete transaction log
+- Filter by buy/sell operations
+- Search by symbol, company, or portfolio
+- Transaction summaries and analytics
+
+## 🛠️ Technology Stack
+
+### Backend
+- **Flask**: Web framework
+- **SQLite**: Database
+- **Flask-CORS**: Cross-origin resource sharing
+
+### Frontend  
+- **React 19**: UI library
+- **TypeScript**: Type safety
+- **Vite**: Modern build tool
+- **React Router**: Client-side routing
+- **React Bootstrap**: UI components
+- **Recharts**: Data visualization
+- **Axios**: API communication
+
+## 🔌 API Endpoints
+
+### Core Endpoints
+- `GET /api/dashboard` - Dashboard overview
+- `GET /api/portfolios` - All portfolios
+- `GET /api/portfolios/{id}` - Portfolio details
+- `GET /api/stocks` - All stocks
+- `GET /api/stocks/{symbol}` - Stock details
+- `POST /api/stocks/{symbol}/buy` - Buy stock
+- `POST /api/stocks/{symbol}/sell` - Sell stock
+- `GET /api/transactions` - Transaction history
+- `GET /api/account/balance` - Account balance
+- `GET /api/net-worth/history` - Net worth tracking
+
+## 🔧 Development
+
+### Backend Development
 ```bash
-python verify_database.py
+cd backend
+# Install dependencies
+pip install flask flask-cors
+
+# Run development server
+python app.py
 ```
 
-### Database Schema
-
-The database consists of four main tables:
-
-- **stocks**: Stock information (symbol, name, current_price)
-- **portfolios**: Portfolio definitions (name, description)
-- **holdings**: Current positions (portfolio_id, stock_id, quantity, avg_buy_price)
-- **transactions**: Transaction history (type, quantity, price, timestamp)
-
-### Virtual Environment Management
-
-**Activate the virtual environment:**
+### Frontend Development
 ```bash
-source venv/bin/activate  # macOS/Linux
-venv\Scripts\activate     # Windows
+cd frontend
+# Install dependencies
+npm install
+
+# Start dev server (with hot reload)
+npm start
+
+# Build for production
+npm run build
 ```
 
-**Deactivate the virtual environment:**
-```bash
-deactivate
-```
+## 📦 Database
 
-**Update requirements.txt:**
-```bash
-pip freeze > requirements.txt
-```
+The application uses SQLite with the following tables:
+- `portfolios` - Portfolio information
+- `stocks` - Stock data and prices
+- `holdings` - Portfolio holdings
+- `transactions` - Buy/sell transactions
+- `account_balance` - User account balance
+- `net_worth_history` - Historical net worth tracking
 
-### Development
+## 🚢 Production Deployment
 
-The project includes development tools in requirements.txt:
-- `pytest` for testing
-- `black` for code formatting
-- `flake8` for linting
+### Backend
+- Use production WSGI server (Gunicorn/uWSGI)
+- Set environment variables for configuration
+- Consider PostgreSQL for production database
 
-**Run code formatting:**
-```bash
-black *.py
-```
+### Frontend
+- Build with `npm run build`
+- Serve static files with nginx/Apache
+- Configure proper CORS origins
 
-**Run linting:**
-```bash
-flake8 *.py
-```
+### Security
+- Implement authentication/authorization
+- Use HTTPS in production
+- Add rate limiting
+- Validate all inputs
 
-### Files
+## 📄 License
 
-- `create_database.py` - Creates SQLite database with sample data
-- `verify_database.py` - Verifies database structure and shows statistics
-- `requirements.txt` - Python dependencies
-- `.gitignore` - Git ignore rules
-- `portfolio_manager.db` - SQLite database (created by script)
+MIT License - see LICENSE file for details
 
-### Database Relationships
+## 🤝 Contributing
 
-```
-portfolios 1:N holdings N:1 stocks
-portfolios 1:N transactions N:1 stocks
-```
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
-Each portfolio can have multiple holdings of different stocks, and each stock can be held by multiple portfolios. Transactions track all buy/sell activities with timestamps.
+---
+
+**Built with ❤️ using modern web technologies**
