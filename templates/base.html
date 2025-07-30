@@ -17,9 +17,38 @@
             background-color: #007bff;
             color: white !important;
         }
+        .user-profile {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            z-index: 1000;
+        }
+        .balance-tooltip {
+            background-color: #28a745;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
     </style>
 </head>
 <body>
+    <!-- User Profile with Account Balance -->
+    <div class="user-profile">
+        <div class="btn-group">
+            <button type="button" class="btn btn-success btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Account Balance: ${{ '%.2f'|format(account_balance) }}">
+                <i class="fas fa-user-circle"></i> ${{ '%.0f'|format(account_balance) }}
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><span class="dropdown-item-text"><strong>Account Balance</strong></span></li>
+                <li><span class="dropdown-item-text balance-tooltip">${{ '%.2f'|format(account_balance) }}</span></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#" onclick="refreshBalance()"><i class="fas fa-sync-alt"></i> Refresh</a></li>
+            </ul>
+        </div>
+    </div>
+
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
@@ -40,7 +69,7 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'stocks' %}active{% endif %}" href="{{ url_for('stocks') }}">
+                            <a class="nav-link {% if request.endpoint in ['stocks', 'stock_detail'] %}active{% endif %}" href="{{ url_for('stocks') }}">
                                 <i class="fas fa-chart-bar"></i> Stocks
                             </a>
                         </li>
@@ -74,6 +103,18 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function refreshBalance() {
+            fetch('/api/account/balance')
+                .then(response => response.json())
+                .then(data => {
+                    location.reload(); // Simple refresh for now
+                })
+                .catch(error => {
+                    console.error('Error fetching balance:', error);
+                });
+        }
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

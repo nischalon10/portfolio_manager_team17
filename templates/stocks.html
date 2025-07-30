@@ -16,8 +16,10 @@
                         <th>Symbol</th>
                         <th>Company Name</th>
                         <th>Current Price</th>
+                        <th>Affordability</th>
                         <th>Total Shares Held</th>
                         <th>Total Value Held</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -26,6 +28,19 @@
                         <td><strong>{{ stock.symbol }}</strong></td>
                         <td>{{ stock.name }}</td>
                         <td class="profit">${{ "%.2f"|format(stock.current_price) }}</td>
+                        <td>
+                            {% if account_balance >= stock.current_price %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check"></i> Can Buy
+                                </span>
+                                <br><small class="text-muted">Up to {{ (account_balance // stock.current_price)|int }} shares</small>
+                            {% else %}
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-times"></i> Insufficient Funds
+                                </span>
+                                <br><small class="text-muted">Need ${{ "%.2f"|format(stock.current_price - account_balance) }} more</small>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if stock.total_shares_held > 0 %}
                                 <span class="badge bg-primary">{{ stock.total_shares_held }}</span>
@@ -39,6 +54,12 @@
                             {% else %}
                                 <span class="text-muted">$0.00</span>
                             {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('stock_detail', symbol=stock.symbol) }}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i> View & Trade
+                            </a>
                         </td>
                     </tr>
                     {% endfor %}

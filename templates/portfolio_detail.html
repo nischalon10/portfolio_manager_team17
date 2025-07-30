@@ -74,7 +74,9 @@
                             {% for holding in holdings %}
                             <tr>
                                 <td>
-                                    <strong>{{ holding.symbol }}</strong>
+                                    <a href="{{ url_for('stock_detail', symbol=holding.symbol) }}" class="text-decoration-none">
+                                        <strong>{{ holding.symbol }}</strong>
+                                    </a>
                                     <br><small class="text-muted">{{ holding.name }}</small>
                                 </td>
                                 <td>{{ holding.quantity }}</td>

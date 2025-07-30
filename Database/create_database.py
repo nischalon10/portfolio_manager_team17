@@ -14,6 +14,7 @@ def create_database():
     cursor.execute('DROP TABLE IF EXISTS holdings')
     cursor.execute('DROP TABLE IF EXISTS portfolios')
     cursor.execute('DROP TABLE IF EXISTS stocks')
+    cursor.execute('DROP TABLE IF EXISTS account_balance')
     
     # Create stocks table
     cursor.execute('''
@@ -22,6 +23,16 @@ def create_database():
             symbol VARCHAR(10) UNIQUE NOT NULL,
             name VARCHAR(255),
             current_price DECIMAL(10,2)
+        )
+    ''')
+    
+    # Create account balance table
+    cursor.execute('''
+        CREATE TABLE account_balance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER DEFAULT 1,
+            balance DECIMAL(15,2) DEFAULT 100000.00,
+            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
@@ -106,6 +117,14 @@ def create_database():
     
     print("Sample portfolios data inserted!")
     
+    # Insert initial account balance
+    cursor.execute('''
+        INSERT INTO account_balance (user_id, balance) 
+        VALUES (1, 100000.00)
+    ''')
+    
+    print("Initial account balance set to $100,000!")
+    
     # Insert sample data into holdings table
     # Generate realistic holdings data
     holdings_data = []
@@ -167,11 +186,15 @@ def create_database():
     cursor.execute('SELECT COUNT(*) FROM transactions')
     transactions_count = cursor.fetchone()[0]
     
+    cursor.execute('SELECT balance FROM account_balance WHERE user_id = 1')
+    account_balance = cursor.fetchone()[0]
+    
     print("\n=== Database Creation Summary ===")
     print(f"Stocks: {stock_count} records")
     print(f"Portfolios: {portfolio_count} records")
     print(f"Holdings: {holdings_count} records")
     print(f"Transactions: {transactions_count} records")
+    print(f"Account Balance: ${account_balance:.2f}")
     
     # Commit changes and close connection
     conn.commit()
