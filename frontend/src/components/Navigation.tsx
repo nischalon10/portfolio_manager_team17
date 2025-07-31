@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navbar, Nav, Container } from 'react-bootstrap';
 import { Link, useLocation } from 'react-router-dom';
+import { FaUserCircle } from 'react-icons/fa'; 
 
 const Navigation: React.FC = () => {
   const location = useLocation();
@@ -41,6 +42,27 @@ const Navigation: React.FC = () => {
               Transactions
             </Nav.Link>
           </Nav>
+            {/* Search bar and profile icon */}
+           <div className="d-flex align-items-center ms-auto">
+            {/* Search Bar */}
+            <form className="d-flex" style={{ marginRight: '16px' }}>
+              <input
+                type="text"
+                placeholder="Search stocks..."
+                className="form-control"
+                style={{ width: '300px', marginRight: '102px' }}
+              />
+            </form>
+             {/* Profile Icon and Name */}
+              <Link to="/profile" className="d-flex align-items-center text-decoration-none">
+         
+            {/* <Nav.Link as={Link} to="/profile"> */}
+              <FaUserCircle size={30} />
+              <span style={{ marginLeft: '8px', color: 'white' }}>John Doe</span>
+           
+            </Link>
+          </div>
+            
         </Navbar.Collapse>
       </Container>
     </Navbar>
