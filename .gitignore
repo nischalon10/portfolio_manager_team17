@@ -40,7 +40,7 @@ backend/venv/
 # Database files (preserve main database)
 *.db-journal
 *.sqlite-journal
-backend/*.db
+database/*.db
 backend/*.sqlite
 backend/*.sqlite3
 
