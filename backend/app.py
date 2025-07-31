@@ -4,7 +4,7 @@ import sqlite3
 import os
 from datetime import datetime
 import threading
-from database_update import fetch_and_update_stock_prices, keep_only_first_30_sp500
+# from database_update import fetch_and_update_stock_prices
 import time
 from database_update import import_sp500
 import yfinance as yf
@@ -617,7 +617,7 @@ if __name__ == '__main__':
     init_db()
     # import_sp500(n=30)
     # keep_only_first_30_sp500()
-    start_stock_updater(interval=60)
+    # start_stock_updater(interval=60)
 
     # Run the Flask app
     app.run(debug=True, host='0.0.0.0', port=5001)
