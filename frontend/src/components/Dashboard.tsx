@@ -1,25 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { Row, Col, Card, Table, Alert, Spinner } from 'react-bootstrap';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import portfolioAPI from '../api';
-import { DashboardData, NetWorthHistoryItem } from '../types';
+import { DashboardData, NetWorthHistoryItem, Stock } from '../types';
 
 const Dashboard: React.FC = () => {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [netWorthHistory, setNetWorthHistory] = useState<NetWorthHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  const [stocks, setStocks] = useState<Stock[]>([]);
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [dashboard, history] = await Promise.all([
+        const [dashboard, history, stocksData] = await Promise.all([
           portfolioAPI.getDashboard(),
-          portfolioAPI.getNetWorthHistory(30)
+          portfolioAPI.getNetWorthHistory(30),
+          portfolioAPI.getStocks()
         ]);
         setDashboardData(dashboard);
         setNetWorthHistory(history);
+        setStocks(stocksData); 
+
       } catch (err) {
         setError('Failed to fetch dashboard data');
         console.error(err);
@@ -95,15 +98,43 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
       </Row>
+<div style={{ marginBottom: '62px' }}></div>
 
       <Row>
-        {/* Net Worth Chart */}
-        <Col lg={8}>
+{/* Watchlist Table  */}
+        <Col lg={3}>
           <Card className="mb-4">
-            <Card.Header>
-              <h5>Net Worth History (Last 30 Days)</h5>
+            <Card.Header style={{ minHeight: '56px', display: 'flex', alignItems: 'center' }}>
+              <h5 style={{ fontSize: '1.25rem', margin: 0 }}>Stocks Watchlist</h5>
             </Card.Header>
             <Card.Body>
+              <Table striped bordered hover size="sm">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Current Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                 {stocks.map((stock) => (
+      <tr key={stock.symbol}>
+        <td>{stock.name}</td>
+        <td>{formatCurrency(stock.current_price)}</td>
+      </tr>
+    ))}
+                </tbody>
+              </Table>
+            </Card.Body>
+          </Card>
+        </Col>
+
+        {/* Net Worth Chart */}
+        <Col lg={5}>
+          <Card className="mb-4" style={{ maxWidth: '600px', margin: '0 auto' }}>
+            <Card.Header style={{ minHeight: '56px', display: 'flex', alignItems: 'center' }}>
+              <h5 style={{ fontSize: '1.25rem', margin: 0 }}>Net Worth History (Last 30 Days)</h5>
+            </Card.Header>
+            <Card.Body style={{ padding: '12px' }}>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={netWorthHistory}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -120,89 +151,112 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
 
-        {/* Portfolio Summary */}
-        <Col lg={4}>
-          <Card className="mb-4">
-            <Card.Header>
-              <h5>Portfolios</h5>
-            </Card.Header>
-            <Card.Body>
-              {dashboardData.portfolios.length === 0 ? (
-                <p>No portfolios found</p>
-              ) : (
-                <Table striped bordered hover size="sm">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dashboardData.portfolios.map((portfolio) => (
-                      <tr key={portfolio.id}>
-                        <td>
-                          <a href={`/portfolio/${portfolio.id}`} className="text-decoration-none">
-                            {portfolio.name}
-                          </a>
-                        </td>
-                        <td>{formatCurrency(portfolio.total_value)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              )}
-            </Card.Body>
-          </Card>
-        </Col>
+        {/* Donut Chart for Portfolios */}
+       <Col lg={4}>
+  <Card className="mb-4" style={{ minHeight: '200px', maxWidth: '400px', margin: '0 auto' }}>
+    <Card.Header style={{ minHeight: '56px', display: 'flex', alignItems: 'center' }}>
+      <h5 style={{ fontSize: '1.25rem', marginBottom: '0.2rem' }}>Market Value</h5>
+    </Card.Header>
+    <Card.Body style={{ padding: '0 10px',paddingTop: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <ResponsiveContainer width="100%" height={243}>
+        <PieChart>
+          {(() => {
+            const portfolios = dashboardData.portfolios.slice(0, 4);
+            const totalValue = portfolios.reduce((sum, p) => sum + p.total_value, 0);
+            const data = portfolios.map(p => ({
+              name: p.name,
+              percent: totalValue ? (p.total_value / totalValue) * 100 : 0,
+            }));
+            return (
+              <Pie
+                data={data}
+                dataKey="percent"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                innerRadius={80}
+                outerRadius={120}
+                label={false}
+              >
+                {data.map((entry, idx) => (
+                  <Cell
+                    key={`cell-${idx}`}
+                    fill={["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#A28DFF", "#FF6F91"][idx % 6]}
+                  />
+                ))}
+              </Pie>
+            );
+          })()}
+          <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
+        </PieChart>
+      </ResponsiveContainer>
+
+      {/* Manual Legend Below Chart */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', marginTop: '10px' }}>
+        {dashboardData.portfolios.slice(0, 4).map((p, idx) => (
+          <div key={p.name} style={{ display: 'flex', alignItems: 'center', margin: '4px 8px' }}>
+            <div style={{
+              width: 12,
+              height: 12,
+              backgroundColor: ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"][idx % 4],
+              marginRight: 6,
+              borderRadius: 2
+            }} />
+            <span style={{ fontSize: '0.8rem' }}>{p.name}</span>
+          </div>
+        ))}
+      </div>
+    </Card.Body>
+  </Card>
+</Col>
+
+
       </Row>
 
-      {/* Recent Transactions */}
-      <Row>
-        <Col>
-          <Card>
+      {/* Portfolio Tiles */}
+      <Row className="justify-content-center">
+
+       {/* Aggressive Growth Portfolio Tile */}
+        <Col xs={12} sm={6} md={4} lg={3}>
+          <Card className="mb-4 text-center" style={{ minHeight: '180px', maxWidth: '250px', borderRadius: '16px', marginLeft: '0' }}>
             <Card.Header>
-              <h5>Recent Transactions</h5>
+              <h5>Aggressive Growth Portfolio</h5>
             </Card.Header>
             <Card.Body>
-              {dashboardData.recent_transactions.length === 0 ? (
-                <p>No recent transactions</p>
-              ) : (
-                <Table striped bordered hover>
-                  <thead>
-                    <tr>
-                      <th>Type</th>
-                      <th>Symbol</th>
-                      <th>Quantity</th>
-                      <th>Price</th>
-                      <th>Portfolio</th>
-                      <th>Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dashboardData.recent_transactions.map((transaction, index) => (
-                      <tr key={index}>
-                        <td>
-                          <span className={`badge ${transaction.type === 'BUY' ? 'bg-success' : 'bg-danger'}`}>
-                            {transaction.type}
-                          </span>
-                        </td>
-                        <td>
-                          <a href={`/stock/${transaction.symbol}`} className="text-decoration-none">
-                            {transaction.symbol}
-                          </a>
-                        </td>
-                        <td>{transaction.quantity}</td>
-                        <td>{formatCurrency(transaction.price)}</td>
-                        <td>{transaction.portfolio_name}</td>
-                        <td>{new Date(transaction.timestamp).toLocaleDateString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              )}
+              <p>
+                This portfolio is ...
+              </p>
+              {/* Example stats */}
+              <div>
+                <div><strong>Value:</strong> $25,000</div>
+                <div><strong>Stocks:</strong> 12</div>
+                <div><strong>Performance:</strong> <span style={{ color: 'green' }}>+8.5%</span></div>
+              </div>
             </Card.Body>
           </Card>
         </Col>
+
+   {/* Dividend Income Portfolio */}
+  <Col xs={12} sm={6} md={4} lg={3}>
+    <Card className="mb-4 text-center" style={{ minHeight: '180px', maxWidth: '250px', borderRadius: '16px', marginLeft: '0' }}>
+      <Card.Header>
+        <h5>Dividend Income Portfolio</h5>
+      </Card.Header>
+      <Card.Body>
+        <p>
+          This portfolio is ...
+        </p>
+        {/* Example stats */}
+        <div>
+          <div><strong>Value:</strong> $30,000</div>
+          <div><strong>Stocks:</strong> 10</div>
+          <div><strong>Performance:</strong> <span style={{ color: 'green' }}>+6.8%</span></div>
+        </div>
+      </Card.Body>
+    </Card>
+  </Col>
+
+
       </Row>
     </div>
   );
