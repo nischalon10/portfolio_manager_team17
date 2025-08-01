@@ -11,7 +11,7 @@ import json
 DB_PATH = '../Database/portfolio_manager.db'
 
 
-def get_sp500_symbols(n=30):
+def get_sp500_symbols(n=10):
     """Fetch the first n S&P 500 stock symbols from Wikipedia using pandas."""
     url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
     tables = pd.read_html(url)
@@ -19,7 +19,7 @@ def get_sp500_symbols(n=30):
     return df['Symbol'].tolist()[:n]
 
 
-def import_sp500(n=30):
+def import_sp500(n=10):
     """Import the first n S&P 500 companies into the stocks table."""
     conn = sqlite3.connect(DB_PATH)
     conn.execute('PRAGMA journal_mode=WAL;')
@@ -52,7 +52,7 @@ def fetch_and_update_stock_prices():
     conn.execute('PRAGMA journal_mode=WAL;')
     cursor = conn.cursor()
 
-    symbols = get_sp500_symbols(n=30)
+    symbols = get_sp500_symbols(n=10)
     prices = {}
     for symbol in symbols:
         try:

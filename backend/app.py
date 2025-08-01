@@ -8,7 +8,6 @@ import threading
 import time
 from database_update import import_sp500
 import yfinance as yf
-from database_update import start_stock_updater
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
