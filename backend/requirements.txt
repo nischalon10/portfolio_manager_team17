@@ -2,7 +2,9 @@
 flask>=2.3.0
 flask-cors>=4.0.0
 pymysql>=1.0.0
+aiomysql>=0.2.0
 yfinance>=0.2.0
-pandas>=1.5.0mysql-connector-python>=8.0.33
-yfinance
-requests
+pandas>=1.5.0
+mysql-connector-python>=8.0.33
+requests>=2.31.0
+websockets>=11.0.0

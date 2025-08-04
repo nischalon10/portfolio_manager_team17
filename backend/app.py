@@ -6,7 +6,6 @@ from datetime import datetime
 import threading
 # from database_update import fetch_and_update_stock_prices
 import time
-from database_update import import_sp500
 import yfinance as yf
 
 app = Flask(__name__)
@@ -231,7 +230,8 @@ def get_stock_detail(symbol):
 
     # Get holdings for this stock across all portfolios
     cursor.execute('''
-        SELECT h.*, p.name as portfolio_name,
+        SELECT h.id, h.portfolio_id, h.stock_id, h.quantity, h.avg_buy_price,
+               p.name as portfolio_name,
                (h.quantity * s.current_price) as current_value,
                (h.quantity * (s.current_price - h.avg_buy_price)) as profit_loss
         FROM holdings h
@@ -244,7 +244,8 @@ def get_stock_detail(symbol):
 
     # Get recent transactions for this stock
     cursor.execute('''
-        SELECT t.*, p.name as portfolio_name
+        SELECT t.id, t.stock_id, t.portfolio_id, t.type, t.quantity, t.price, t.timestamp,
+               p.name as portfolio_name
         FROM transactions t
         JOIN portfolios p ON t.portfolio_id = p.id
         JOIN stocks s ON t.stock_id = s.id
@@ -266,11 +267,11 @@ def get_stock_detail(symbol):
         'holdings': [{
             'id': row[0],
             'portfolio_id': row[1],
-            'portfolio_name': row[4],
+            'portfolio_name': row[5],
             'quantity': row[3],
             'avg_buy_price': float(row[4]),
-            'current_value': float(row[5]),
-            'profit_loss': float(row[6])
+            'current_value': float(row[6]),
+            'profit_loss': float(row[7])
         } for row in holdings],
         'transactions': [{
             'id': row[0],
