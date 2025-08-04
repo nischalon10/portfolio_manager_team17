@@ -199,7 +199,7 @@ def get_stocks():
                COALESCE(SUM(h.quantity * s.current_price), 0) as total_value_held
         FROM stocks s
         LEFT JOIN holdings h ON s.id = h.stock_id
-        GROUP BY s.id, s.symbol, s.name, s.current_price
+        GROUP BY s.id, s.symbol, s.name, s.current_price, s.watchlist
         ORDER BY s.symbol
     ''')
     stocks = cursor.fetchall()
@@ -210,8 +210,9 @@ def get_stocks():
         'symbol': row[1],
         'name': row[2],
         'current_price': float(row[3]),
-        'total_shares_held': row[4],
-        'total_value_held': float(row[5])
+        'watchlist': bool(row[4]),
+        'total_shares_held': row[5],
+        'total_value_held': float(row[6])
     } for row in stocks])
 
 
@@ -222,7 +223,7 @@ def get_stock_detail(symbol):
     cursor = conn.cursor()
 
     # Get stock info
-    cursor.execute('SELECT * FROM stocks WHERE symbol = %s', (symbol.upper(),))
+    cursor.execute('SELECT id, symbol, name, current_price, watchlist FROM stocks WHERE symbol = %s', (symbol.upper(),))
     stock = cursor.fetchone()
 
     if not stock:
@@ -262,7 +263,8 @@ def get_stock_detail(symbol):
             'id': stock[0],
             'symbol': stock[1],
             'name': stock[2],
-            'current_price': float(stock[3])
+            'current_price': float(stock[3]),
+            'watchlist': bool(stock[4])
         },
         'holdings': [{
             'id': row[0],
@@ -630,6 +632,93 @@ def api_net_worth_history():
         'portfolio_value': float(row[2]),
         'total_net_worth': float(row[3])
     } for row in history])
+
+
+@app.route('/api/watchlist', methods=['GET'])
+def get_watchlist():
+    """Get all stocks in watchlist"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT s.*, 
+               COALESCE(SUM(h.quantity), 0) as total_shares_held,
+               COALESCE(SUM(h.quantity * s.current_price), 0) as total_value_held
+        FROM stocks s
+        LEFT JOIN holdings h ON s.id = h.stock_id
+        WHERE s.watchlist = TRUE
+        GROUP BY s.id, s.symbol, s.name, s.current_price, s.watchlist
+        ORDER BY s.symbol
+    ''')
+    stocks = cursor.fetchall()
+    conn.close()
+
+    return jsonify([{
+        'id': row[0],
+        'symbol': row[1],
+        'name': row[2],
+        'current_price': float(row[3]),
+        'watchlist': bool(row[4]),
+        'total_shares_held': row[5],
+        'total_value_held': float(row[6])
+    } for row in stocks])
+
+
+@app.route('/api/stocks/<string:symbol>/watchlist', methods=['POST'])
+def add_to_watchlist(symbol):
+    """Add stock to watchlist"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Check if stock exists
+        cursor.execute('SELECT id FROM stocks WHERE symbol = %s', (symbol.upper(),))
+        stock = cursor.fetchone()
+        if not stock:
+            return jsonify({'error': 'Stock not found'}), 404
+
+        # Add to watchlist
+        cursor.execute('''
+            UPDATE stocks 
+            SET watchlist = TRUE 
+            WHERE symbol = %s
+        ''', (symbol.upper(),))
+        
+        conn.commit()
+        conn.close()
+
+        return jsonify({'message': f'{symbol.upper()} added to watchlist successfully'})
+
+    except Exception as e:
+        return jsonify({'error': f'Error adding to watchlist: {str(e)}'}), 500
+
+
+@app.route('/api/stocks/<string:symbol>/watchlist', methods=['DELETE'])
+def remove_from_watchlist(symbol):
+    """Remove stock from watchlist"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Check if stock exists
+        cursor.execute('SELECT id FROM stocks WHERE symbol = %s', (symbol.upper(),))
+        stock = cursor.fetchone()
+        if not stock:
+            return jsonify({'error': 'Stock not found'}), 404
+
+        # Remove from watchlist
+        cursor.execute('''
+            UPDATE stocks 
+            SET watchlist = FALSE 
+            WHERE symbol = %s
+        ''', (symbol.upper(),))
+        
+        conn.commit()
+        conn.close()
+
+        return jsonify({'message': f'{symbol.upper()} removed from watchlist successfully'})
+
+    except Exception as e:
+        return jsonify({'error': f'Error removing from watchlist: {str(e)}'}), 500
 
 
 @app.errorhandler(404)

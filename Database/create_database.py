@@ -49,7 +49,8 @@ def create_database():
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 symbol VARCHAR(10) UNIQUE NOT NULL,
                 name VARCHAR(255),
-                current_price DECIMAL(10,2)
+                current_price DECIMAL(10,2),
+                watchlist BOOLEAN DEFAULT FALSE
             )
         ''')
         
@@ -117,16 +118,31 @@ def create_database():
         
         # Insert sample data into stocks table
         stocks_data = [
-            ('AAPL', 'Apple Inc.', 175.43),
-            ('GOOGL', 'Alphabet Inc.', 2750.12),
-            ('MSFT', 'Microsoft Corporation', 338.85),
-            ('AMZN', 'Amazon.com Inc.', 3380.00),
-            ('TSLA', 'Tesla Inc.', 890.75),
-            ('META', 'Meta Platforms Inc.', 325.20),
-            ('NVDA', 'NVIDIA Corporation', 445.67),
-            ('NFLX', 'Netflix Inc.', 425.89),
-            ('AMD', 'Advanced Micro Devices', 110.45),
-            ('INTC', 'Intel Corporation', 55.78)
+            ('AAPL', 'Apple Inc.', 0.00),
+            ('MSFT', 'Microsoft Corporation', 0.00),
+            ('GOOGL', 'Alphabet Inc. (Class A)', 0.00),
+            ('AMZN', 'Amazon.com, Inc.', 0.00),
+            ('TSLA', 'Tesla, Inc.', 0.00),
+            ('NVDA', 'NVIDIA Corporation', 0.00),
+            ('META', 'Meta Platforms, Inc.', 0.00),
+            ('BRK-B', 'Berkshire Hathaway Inc. (Class B)', 0.00),
+            ('UNH', 'UnitedHealth Group Incorporated', 0.00),
+            ('V', 'Visa Inc.', 0.00),
+            ('JNJ', 'Johnson & Johnson', 0.00),
+            ('JPM', 'JPMorgan Chase & Co.', 0.00),
+            ('PG', 'Procter & Gamble Company', 0.00),
+            ('MA', 'Mastercard Incorporated', 0.00),
+            ('HD', 'The Home Depot, Inc.', 0.00),
+            ('XOM', 'Exxon Mobil Corporation', 0.00),
+            ('KO', 'The Coca-Cola Company', 0.00),
+            ('PEP', 'PepsiCo, Inc.', 0.00),
+            ('LLY', 'Eli Lilly and Company', 0.00),
+            ('MRK', 'Merck & Co., Inc.', 0.00),
+            ('WMT', 'Walmart Inc.', 0.00),
+            ('DIS', 'The Walt Disney Company', 0.00),
+            ('BAC', 'Bank of America Corporation', 0.00),
+            ('NFLX', 'Netflix, Inc.', 0.00),
+            ('INTC', 'Intel Corporation', 0.00)
         ]
         
         cursor.executemany('''

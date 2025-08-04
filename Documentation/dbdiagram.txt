@@ -1,18 +1,17 @@
-// Portfolio Manager ERD
-// Define tables and relationships
-// https://dbdiagram.io/d
-
+// Portfolio Manager Database Schema
+// Use this at https://dbdiagram.io/d to visualize the database structure
 
 Table stocks {
   id integer [primary key]
-  symbol varchar [unique, not null]
-  name varchar
-  current_price decimal
+  symbol varchar(10) [unique, not null]
+  name varchar(255)
+  current_price decimal(10,2)
+  watchlist boolean [default: false]
 }
 
 Table portfolios {
   id integer [primary key]
-  name varchar
+  name varchar(255)
   description text
 }
 
@@ -21,22 +20,38 @@ Table holdings {
   portfolio_id integer [not null]
   stock_id integer [not null]
   quantity integer
-  avg_buy_price decimal
+  avg_buy_price decimal(10,2)
 }
 
 Table transactions {
   id integer [primary key]
   stock_id integer [not null]
   portfolio_id integer [not null]
-  type varchar [note: 'BUY or SELL']
+  type varchar(4) [note: 'BUY or SELL']
   quantity integer
-  price decimal
-  timestamp timestamp
+  price decimal(10,2)
+  timestamp timestamp [default: 'CURRENT_TIMESTAMP']
+}
+
+Table account_balance {
+  id integer [primary key]
+  user_id integer [default: 1]
+  balance decimal(15,2) [default: 100000.00]
+  last_updated timestamp [default: 'CURRENT_TIMESTAMP']
+}
+
+Table net_worth_history {
+  id integer [primary key]
+  user_id integer [default: 1]
+  date date [not null]
+  account_balance decimal(15,2)
+  portfolio_value decimal(15,2)
+  total_net_worth decimal(15,2)
+  timestamp timestamp [default: 'CURRENT_TIMESTAMP']
 }
 
 // Relationships
 Ref: holdings.portfolio_id > portfolios.id
 Ref: holdings.stock_id > stocks.id
-
 Ref: transactions.portfolio_id > portfolios.id
 Ref: transactions.stock_id > stocks.id

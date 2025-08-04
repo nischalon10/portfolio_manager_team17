@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Row, Col, Card, Table, Alert, Spinner } from 'react-bootstrap';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Link } from 'react-router-dom';
 import portfolioAPI from '../api';
 import { DashboardData, NetWorthHistoryItem, Stock } from '../types';
 
@@ -9,19 +10,19 @@ const Dashboard: React.FC = () => {
   const [netWorthHistory, setNetWorthHistory] = useState<NetWorthHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [stocks, setStocks] = useState<Stock[]>([]);
+  const [watchlistStocks, setWatchlistStocks] = useState<Stock[]>([]);
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [dashboard, history, stocksData] = await Promise.all([
+        const [dashboard, history, watchlist] = await Promise.all([
           portfolioAPI.getDashboard(),
           portfolioAPI.getNetWorthHistory(30),
-          portfolioAPI.getStocks()
+          portfolioAPI.getWatchlist()
         ]);
         setDashboardData(dashboard);
         setNetWorthHistory(history);
-        setStocks(stocksData); 
+        setWatchlistStocks(watchlist); 
 
       } catch (err) {
         setError('Failed to fetch dashboard data');
@@ -108,22 +109,39 @@ const Dashboard: React.FC = () => {
               <h5 style={{ fontSize: '1.25rem', margin: 0 }}>Stocks Watchlist</h5>
             </Card.Header>
             <Card.Body>
-              <Table striped bordered hover size="sm">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Current Price</th>
-                  </tr>
-                </thead>
-                <tbody>
-                 {stocks.map((stock) => (
-      <tr key={stock.symbol}>
-        <td>{stock.name}</td>
-        <td>{formatCurrency(stock.current_price)}</td>
-      </tr>
-    ))}
-                </tbody>
-              </Table>
+              {watchlistStocks.length === 0 ? (
+                <div className="text-center text-muted py-3">
+                  <p>No stocks in watchlist</p>
+                  <small>Visit stock pages to add stocks to your watchlist</small>
+                </div>
+              ) : (
+                <Table striped bordered hover size="sm">
+                  <thead>
+                    <tr>
+                      <th>Symbol</th>
+                      <th>Name</th>
+                      <th>Price</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {watchlistStocks.map((stock) => (
+                      <tr key={stock.symbol}>
+                        <td>
+                          <Link to={`/stock/${stock.symbol}`} className="text-decoration-none">
+                            <strong>{stock.symbol}</strong>
+                          </Link>
+                        </td>
+                        <td>
+                          <Link to={`/stock/${stock.symbol}`} className="text-decoration-none text-dark">
+                            {stock.name}
+                          </Link>
+                        </td>
+                        <td>{formatCurrency(stock.current_price)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              )}
             </Card.Body>
           </Card>
         </Col>

@@ -15,6 +15,7 @@ const StockDetailComponent: React.FC = () => {
   const [tradeLoading, setTradeLoading] = useState(false);
   const [tradeError, setTradeError] = useState<string | null>(null);
   const [tradeSuccess, setTradeSuccess] = useState<string | null>(null);
+  const [watchlistLoading, setWatchlistLoading] = useState(false);
   
   const [buyForm, setBuyForm] = useState({
     portfolio_id: '',
@@ -129,6 +130,31 @@ const StockDetailComponent: React.FC = () => {
     }
   };
 
+  const handleWatchlistToggle = async () => {
+    if (!symbol || !stockDetail) return;
+
+    try {
+      setWatchlistLoading(true);
+      setTradeError(null);
+
+      if (stockDetail.stock.watchlist) {
+        await portfolioAPI.removeFromWatchlist(symbol);
+        setTradeSuccess(`${symbol.toUpperCase()} removed from watchlist`);
+      } else {
+        await portfolioAPI.addToWatchlist(symbol);
+        setTradeSuccess(`${symbol.toUpperCase()} added to watchlist`);
+      }
+
+      // Refresh stock detail to update watchlist status
+      const updatedStock = await portfolioAPI.getStockDetail(symbol);
+      setStockDetail(updatedStock);
+    } catch (err: any) {
+      setTradeError(err.response?.data?.error || 'Failed to update watchlist');
+    } finally {
+      setWatchlistLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center mt-5">
@@ -209,9 +235,26 @@ const StockDetailComponent: React.FC = () => {
           <Button variant="success" className="me-2" onClick={() => setShowBuyModal(true)}>
             Buy Stock
           </Button>
-          <Button variant="danger" onClick={() => setShowSellModal(true)} disabled={totalHoldings === 0}>
+          <Button variant="danger" className="me-2" onClick={() => setShowSellModal(true)} disabled={totalHoldings === 0}>
             Sell Stock
           </Button>
+          <Button 
+            variant={stockDetail.stock.watchlist ? "outline-danger" : "outline-success"} 
+            onClick={handleWatchlistToggle}
+            disabled={watchlistLoading}
+            className="me-2"
+          >
+            {watchlistLoading ? (
+              'Updating...'
+            ) : stockDetail.stock.watchlist ? (
+              '★ Remove from Watchlist'
+            ) : (
+              '☆ Add to Watchlist'
+            )}
+          </Button>
+          <Badge bg={stockDetail.stock.watchlist ? "success" : "secondary"}>
+            {stockDetail.stock.watchlist ? "In Watchlist" : "Not in Watchlist"}
+          </Badge>
         </Col>
       </Row>
 

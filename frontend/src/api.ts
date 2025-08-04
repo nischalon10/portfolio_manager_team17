@@ -87,6 +87,22 @@ export const portfolioAPI = {
     const response = await api.get(`/net-worth/history?limit=${limit}`);
     return response.data;
   },
+
+  // Watchlist endpoints
+  getWatchlist: async (): Promise<Stock[]> => {
+    const response = await api.get('/watchlist');
+    return response.data;
+  },
+
+  addToWatchlist: async (symbol: string): Promise<{ message: string }> => {
+    const response = await api.post(`/stocks/${symbol}/watchlist`);
+    return response.data;
+  },
+
+  removeFromWatchlist: async (symbol: string): Promise<{ message: string }> => {
+    const response = await api.delete(`/stocks/${symbol}/watchlist`);
+    return response.data;
+  },
 };
 
 export default portfolioAPI;

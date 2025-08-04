@@ -13,6 +13,7 @@ export interface Stock {
   symbol: string;
   name: string;
   current_price: number;
+  watchlist: boolean;
   total_shares_held: number;
   total_value_held: number;
 }
@@ -57,6 +58,7 @@ export interface StockDetail {
     symbol: string;
     name: string;
     current_price: number;
+    watchlist: boolean;
   };
   holdings: Holding[];
   transactions: Transaction[];

@@ -101,7 +101,9 @@ def test_database_connection():
         cursor.execute('''
             SELECT symbol, name, current_price 
             FROM stocks 
-            WHERE symbol IN ('AAPL', 'TSLA', 'GOOGL')
+            WHERE symbol IN ('AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'BRK-B',
+                           'UNH', 'V', 'JNJ', 'JPM', 'PG', 'MA', 'HD', 'XOM', 'KO', 'PEP',
+                           'LLY', 'MRK', 'WMT', 'DIS', 'BAC', 'NFLX', 'INTC')
             ORDER BY symbol
         ''')
         
@@ -134,8 +136,12 @@ def main():
         print("Database connection failed. Exiting...")
         return
     
-    # Define symbols to track (only the three specified)
-    symbols = ["AAPL", "TSLA", "GOOGL"]
+    # Define symbols to track (all portfolio stocks)
+    symbols = [
+        "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA", "META", "BRK-B",
+        "UNH", "V", "JNJ", "JPM", "PG", "MA", "HD", "XOM", "KO", "PEP",
+        "LLY", "MRK", "WMT", "DIS", "BAC", "NFLX", "INTC"
+    ]
     
     print("\nStarting live stock tracker with WebSocket and database updates...")
     print(f"Tracking symbols: {', '.join(symbols)}")
