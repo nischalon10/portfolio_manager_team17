@@ -1,4 +1,4 @@
-import mysql.connector
+import pymysql
 import random
 import os
 from datetime import datetime, timedelta
@@ -21,18 +21,18 @@ def create_database():
     temp_config.pop('database')
     
     try:
-        temp_conn = mysql.connector.connect(**temp_config)
+        temp_conn = pymysql.connect(**temp_config)
         temp_cursor = temp_conn.cursor()
         temp_cursor.execute(f"CREATE DATABASE IF NOT EXISTS {config['database']}")
         temp_conn.close()
         print(f"Database '{config['database']}' created or already exists!")
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         print(f"Error creating database: {err}")
         return
     
     # Now connect to the specific database
     try:
-        conn = mysql.connector.connect(**config)
+        conn = pymysql.connect(**config)
         cursor = conn.cursor()
     
         # Drop tables if they exist (for clean setup)
@@ -202,7 +202,7 @@ def create_database():
         print("The database has stocks and portfolios ready for testing.")
         print("Holdings and transactions will be created when you use the application.")
         
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         print(f"Error: {err}")
         if 'conn' in locals():
             conn.close()
@@ -219,7 +219,7 @@ def display_sample_data():
     }
     
     try:
-        conn = mysql.connector.connect(**config)
+        conn = pymysql.connect(**config)
         cursor = conn.cursor()
         
         print("\n=== Sample Data Preview ===")
@@ -258,7 +258,7 @@ def display_sample_data():
         
         conn.close()
         
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         print(f"Error connecting to database: {err}")
 
 if __name__ == "__main__":

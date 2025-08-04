@@ -1,4 +1,4 @@
-import mysql.connector
+import pymysql
 import yfinance as yf
 import pandas as pd
 import time
@@ -29,7 +29,7 @@ def get_sp500_symbols(n=10):
 
 def import_sp500(n=10):
     """Import the first n S&P 500 companies into the stocks table."""
-    conn = mysql.connector.connect(**DB_CONFIG)
+    conn = pymysql.connect(**DB_CONFIG)
     cursor = conn.cursor()
 
     symbols = get_sp500_symbols(n)
@@ -55,7 +55,7 @@ def import_sp500(n=10):
 
 def fetch_and_update_stock_prices():
     """Fetch and update prices for the first 30 S&P 500 stocks in the database."""
-    conn = mysql.connector.connect(**DB_CONFIG)
+    conn = pymysql.connect(**DB_CONFIG)
     cursor = conn.cursor()
 
     symbols = get_sp500_symbols(n=10)

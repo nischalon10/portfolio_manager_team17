@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import mysql.connector
+import pymysql
 import os
 from datetime import datetime
 import threading
@@ -24,7 +24,7 @@ DB_CONFIG = {
 
 def get_db_connection():
     """Get database connection"""
-    conn = mysql.connector.connect(**DB_CONFIG)
+    conn = pymysql.connect(**DB_CONFIG)
     return conn
 
 
@@ -90,7 +90,7 @@ def init_db():
         conn = get_db_connection()
         conn.close()
         print("Database connection successful!")
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         print(f"Database connection failed: {err}")
         print("Please make sure MySQL is running and the database exists")
 
