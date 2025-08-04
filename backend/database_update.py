@@ -1,4 +1,4 @@
-import sqlite3
+import mysql.connector
 import yfinance as yf
 import pandas as pd
 import time
@@ -7,8 +7,16 @@ from datetime import datetime
 import asyncio
 import websockets
 import json
+import os
 
-DB_PATH = '../Database/portfolio_manager.db'
+# MySQL connection configuration
+DB_CONFIG = {
+    'host': os.getenv('MYSQL_HOST', 'localhost'),
+    'user': os.getenv('MYSQL_USER', 'root'),
+    'password': os.getenv('MYSQL_PASSWORD', ''),
+    'database': os.getenv('MYSQL_DATABASE', 'portfolio_manager'),
+    'port': int(os.getenv('MYSQL_PORT', 3306))
+}
 
 
 def get_sp500_symbols(n=10):
@@ -21,8 +29,7 @@ def get_sp500_symbols(n=10):
 
 def import_sp500(n=10):
     """Import the first n S&P 500 companies into the stocks table."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute('PRAGMA journal_mode=WAL;')
+    conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor()
 
     symbols = get_sp500_symbols(n)
@@ -34,7 +41,7 @@ def import_sp500(n=10):
             price = info.get('regularMarketPrice') or info.get(
                 'currentPrice') or 100.0
             cursor.execute(
-                'INSERT OR IGNORE INTO stocks (symbol, name, current_price) VALUES (?, ?, ?)',
+                'INSERT IGNORE INTO stocks (symbol, name, current_price) VALUES (%s, %s, %s)',
                 (symbol, name, price)
             )
             print(f"Added {symbol}: {name}")
@@ -48,8 +55,7 @@ def import_sp500(n=10):
 
 def fetch_and_update_stock_prices():
     """Fetch and update prices for the first 30 S&P 500 stocks in the database."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute('PRAGMA journal_mode=WAL;')
+    conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor()
 
     symbols = get_sp500_symbols(n=10)
@@ -61,7 +67,7 @@ def fetch_and_update_stock_prices():
             price = info.get('regularMarketPrice') or info.get('currentPrice')
             if price:
                 cursor.execute(
-                    'UPDATE stocks SET current_price = ? WHERE symbol = ?',
+                    'UPDATE stocks SET current_price = %s WHERE symbol = %s',
                     (price, symbol)
                 )
                 prices[symbol] = {

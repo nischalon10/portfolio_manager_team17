@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import sqlite3
+import mysql.connector
 import os
 from datetime import datetime
 import threading
@@ -12,33 +12,39 @@ import yfinance as yf
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-# Database path
-DB_PATH = os.path.join('..', 'Database', 'portfolio_manager.db')
+# MySQL connection configuration
+DB_CONFIG = {
+    'host': os.getenv('MYSQL_HOST', 'localhost'),
+    'user': os.getenv('MYSQL_USER', 'root'),
+    'password': os.getenv('MYSQL_PASSWORD', ''),
+    'database': os.getenv('MYSQL_DATABASE', 'portfolio_manager'),
+    'port': int(os.getenv('MYSQL_PORT', 3306))
+}
 
 
 def get_db_connection():
     """Get database connection"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute('PRAGMA journal_mode=WAL;')
-    conn.row_factory = sqlite3.Row  # This enables column access by name
+    conn = mysql.connector.connect(**DB_CONFIG)
     return conn
 
 
 def get_account_balance():
     """Get current account balance"""
     conn = get_db_connection()
-    result = conn.execute(
-        'SELECT balance FROM account_balance WHERE user_id = 1').fetchone()
+    cursor = conn.cursor()
+    cursor.execute('SELECT balance FROM account_balance WHERE user_id = 1')
+    result = cursor.fetchone()
     conn.close()
-    return float(result['balance']) if result else 0.0
+    return float(result[0]) if result else 0.0
 
 
 def update_account_balance(amount):
     """Update account balance by adding/subtracting amount"""
     conn = get_db_connection()
-    conn.execute('''
+    cursor = conn.cursor()
+    cursor.execute('''
         UPDATE account_balance 
-        SET balance = balance + ?, last_updated = ?
+        SET balance = balance + %s, last_updated = %s
         WHERE user_id = 1
     ''', (amount, datetime.now()))
     conn.commit()
@@ -48,30 +54,30 @@ def update_account_balance(amount):
 def record_net_worth_snapshot():
     """Record current net worth for historical tracking after each transaction"""
     conn = get_db_connection()
+    cursor = conn.cursor()
 
     # Get current account balance
-    balance_result = conn.execute(
-        'SELECT balance FROM account_balance WHERE user_id = 1').fetchone()
-    account_balance = float(
-        balance_result['balance']) if balance_result else 0.0
+    cursor.execute('SELECT balance FROM account_balance WHERE user_id = 1')
+    balance_result = cursor.fetchone()
+    account_balance = float(balance_result[0]) if balance_result else 0.0
 
     # Get current portfolio value
-    portfolio_result = conn.execute('''
+    cursor.execute('''
         SELECT COALESCE(SUM(h.quantity * s.current_price), 0) as total
         FROM holdings h
         JOIN stocks s ON h.stock_id = s.id
-    ''').fetchone()
-    portfolio_value = float(
-        portfolio_result['total']) if portfolio_result else 0.0
+    ''')
+    portfolio_result = cursor.fetchone()
+    portfolio_value = float(portfolio_result[0]) if portfolio_result else 0.0
 
     total_net_worth = account_balance + portfolio_value
     current_time = datetime.now()
     today = current_time.strftime('%Y-%m-%d')
 
     # Always insert new entry for each transaction
-    conn.execute('''
+    cursor.execute('''
         INSERT INTO net_worth_history (user_id, date, account_balance, portfolio_value, total_net_worth, timestamp)
-        VALUES (1, ?, ?, ?, ?, ?)
+        VALUES (1, %s, %s, %s, %s, %s)
     ''', (today, account_balance, portfolio_value, total_net_worth, current_time))
 
     conn.commit()
@@ -80,11 +86,13 @@ def record_net_worth_snapshot():
 
 def init_db():
     """Initialize database if it doesn't exist"""
-    if not os.path.exists(DB_PATH):
-        # Database should already exist from the original project
-        print(f"Database not found at {DB_PATH}")
-        print("Please make sure the database exists at the correct path")
-        return
+    try:
+        conn = get_db_connection()
+        conn.close()
+        print("Database connection successful!")
+    except mysql.connector.Error as err:
+        print(f"Database connection failed: {err}")
+        print("Please make sure MySQL is running and the database exists")
 
 # API Routes
 
@@ -93,7 +101,8 @@ def init_db():
 def get_portfolios():
     """Get all portfolios with summary"""
     conn = get_db_connection()
-    portfolios = conn.execute('''
+    cursor = conn.cursor()
+    cursor.execute('''
         SELECT p.id, p.name, p.description, 
                COUNT(h.id) as holdings_count,
                COALESCE(SUM(h.quantity * s.current_price), 0) as total_value
@@ -102,15 +111,16 @@ def get_portfolios():
         LEFT JOIN stocks s ON h.stock_id = s.id
         GROUP BY p.id, p.name, p.description
         ORDER BY p.name
-    ''').fetchall()
+    ''')
+    portfolios = cursor.fetchall()
     conn.close()
 
     return jsonify([{
-        'id': row['id'],
-        'name': row['name'],
-        'description': row['description'],
-        'holdings_count': row['holdings_count'],
-        'total_value': float(row['total_value'])
+        'id': row[0],
+        'name': row[1],
+        'description': row[2],
+        'holdings_count': row[3],
+        'total_value': float(row[4])
     } for row in portfolios])
 
 
@@ -118,61 +128,63 @@ def get_portfolios():
 def get_portfolio_detail(portfolio_id):
     """Get detailed portfolio information"""
     conn = get_db_connection()
+    cursor = conn.cursor()
 
     # Get portfolio info
-    portfolio = conn.execute('''
-        SELECT * FROM portfolios WHERE id = ?
-    ''', (portfolio_id,)).fetchone()
+    cursor.execute('SELECT * FROM portfolios WHERE id = %s', (portfolio_id,))
+    portfolio = cursor.fetchone()
 
     if not portfolio:
         return jsonify({'error': 'Portfolio not found'}), 404
 
     # Get holdings with current values
-    holdings = conn.execute('''
+    cursor.execute('''
         SELECT h.id, s.symbol, s.name, h.quantity, h.avg_buy_price, s.current_price,
                (h.quantity * s.current_price) as current_value,
                (h.quantity * (s.current_price - h.avg_buy_price)) as profit_loss
         FROM holdings h
         JOIN stocks s ON h.stock_id = s.id
-        WHERE h.portfolio_id = ?
+        WHERE h.portfolio_id = %s
         ORDER BY current_value DESC
-    ''', (portfolio_id,)).fetchall()
+    ''', (portfolio_id,))
+    holdings = cursor.fetchall()
 
     # Get transactions for this portfolio
-    transactions = conn.execute('''
+    cursor.execute('''
         SELECT t.type, s.symbol, s.name, t.quantity, t.price, t.timestamp
         FROM transactions t
         JOIN stocks s ON t.stock_id = s.id
-        WHERE t.portfolio_id = ?
+        WHERE t.portfolio_id = %s
         ORDER BY t.timestamp DESC
         LIMIT 20
-    ''', (portfolio_id,)).fetchall()
+    ''', (portfolio_id,))
+    transactions = cursor.fetchall()
 
     conn.close()
 
     return jsonify({
         'portfolio': {
-            'id': portfolio['id'],
-            'name': portfolio['name'],
-            'description': portfolio['description']
+            'id': portfolio[0],
+            'name': portfolio[1],
+            'description': portfolio[2]
         },
         'holdings': [{
-            'id': row['id'],
-            'symbol': row['symbol'],
-            'name': row['name'],
-            'quantity': row['quantity'],
-            'avg_buy_price': float(row['avg_buy_price']),
-            'current_price': float(row['current_price']),
-            'current_value': float(row['current_value']),
-            'profit_loss': float(row['profit_loss'])
+            'id': row[0],
+            'symbol': row[1],
+            'name': row[2],
+            'quantity': row[3],
+            'avg_buy_price': float(row[4]),
+            'current_price': float(row[5]),
+            'current_value': float(row[6]),
+            'profit_loss': float(row[7])
         } for row in holdings],
         'transactions': [{
-            'type': row['type'],
-            'symbol': row['symbol'],
-            'name': row['name'],
-            'quantity': row['quantity'],
-            'price': float(row['price']),
-            'timestamp': row['timestamp']
+            'type': row[0],
+            'symbol': row[1],
+            'name': row[2],
+            'quantity': row[3],
+            'price': float(row[4]),
+            'timestamp': row[5]
         } for row in transactions]
     })
 
@@ -181,7 +193,8 @@ def get_portfolio_detail(portfolio_id):
 def get_stocks():
     """Get all stocks"""
     conn = get_db_connection()
-    stocks = conn.execute('''
+    cursor = conn.cursor()
+    cursor.execute('''
         SELECT s.*, 
                COALESCE(SUM(h.quantity), 0) as total_shares_held,
                COALESCE(SUM(h.quantity * s.current_price), 0) as total_value_held
@@ -189,16 +202,17 @@ def get_stocks():
         LEFT JOIN holdings h ON s.id = h.stock_id
         GROUP BY s.id, s.symbol, s.name, s.current_price
         ORDER BY s.symbol
-    ''').fetchall()
+    ''')
+    stocks = cursor.fetchall()
     conn.close()
 
     return jsonify([{
-        'id': row['id'],
-        'symbol': row['symbol'],
-        'name': row['name'],
-        'current_price': float(row['current_price']),
-        'total_shares_held': row['total_shares_held'],
-        'total_value_held': float(row['total_value_held'])
+        'id': row[0],
+        'symbol': row[1],
+        'name': row[2],
+        'current_price': float(row[3]),
+        'total_shares_held': row[4],
+        'total_value_held': float(row[5])
     } for row in stocks])
 
 
@@ -206,63 +220,65 @@ def get_stocks():
 def get_stock_detail(symbol):
     """Get detailed stock information"""
     conn = get_db_connection()
+    cursor = conn.cursor()
 
     # Get stock info
-    stock = conn.execute('''
-        SELECT * FROM stocks WHERE symbol = ?
-    ''', (symbol.upper(),)).fetchone()
+    cursor.execute('SELECT * FROM stocks WHERE symbol = %s', (symbol.upper(),))
+    stock = cursor.fetchone()
 
     if not stock:
         return jsonify({'error': 'Stock not found'}), 404
 
     # Get holdings for this stock across all portfolios
-    holdings = conn.execute('''
+    cursor.execute('''
         SELECT h.*, p.name as portfolio_name,
                (h.quantity * s.current_price) as current_value,
                (h.quantity * (s.current_price - h.avg_buy_price)) as profit_loss
         FROM holdings h
         JOIN portfolios p ON h.portfolio_id = p.id
         JOIN stocks s ON h.stock_id = s.id
-        WHERE s.symbol = ?
+        WHERE s.symbol = %s
         ORDER BY p.name
-    ''', (symbol.upper(),)).fetchall()
+    ''', (symbol.upper(),))
+    holdings = cursor.fetchall()
 
     # Get recent transactions for this stock
-    transactions = conn.execute('''
+    cursor.execute('''
         SELECT t.*, p.name as portfolio_name
         FROM transactions t
         JOIN portfolios p ON t.portfolio_id = p.id
         JOIN stocks s ON t.stock_id = s.id
-        WHERE s.symbol = ?
+        WHERE s.symbol = %s
         ORDER BY t.timestamp DESC
         LIMIT 20
-    ''', (symbol.upper(),)).fetchall()
+    ''', (symbol.upper(),))
+    transactions = cursor.fetchall()
 
     conn.close()
 
     return jsonify({
         'stock': {
-            'id': stock['id'],
-            'symbol': stock['symbol'],
-            'name': stock['name'],
-            'current_price': float(stock['current_price'])
+            'id': stock[0],
+            'symbol': stock[1],
+            'name': stock[2],
+            'current_price': float(stock[3])
         },
         'holdings': [{
-            'id': row['id'],
-            'portfolio_id': row['portfolio_id'],
-            'portfolio_name': row['portfolio_name'],
-            'quantity': row['quantity'],
-            'avg_buy_price': float(row['avg_buy_price']),
-            'current_value': float(row['current_value']),
-            'profit_loss': float(row['profit_loss'])
+            'id': row[0],
+            'portfolio_id': row[1],
+            'portfolio_name': row[4],
+            'quantity': row[3],
+            'avg_buy_price': float(row[4]),
+            'current_value': float(row[5]),
+            'profit_loss': float(row[6])
         } for row in holdings],
         'transactions': [{
-            'id': row['id'],
-            'type': row['type'],
-            'quantity': row['quantity'],
-            'price': float(row['price']),
-            'timestamp': row['timestamp'],
-            'portfolio_name': row['portfolio_name']
+            'id': row[0],
+            'type': row[3],
+            'quantity': row[4],
+            'price': float(row[5]),
+            'timestamp': row[6],
+            'portfolio_name': row[7]
         } for row in transactions]
     })
 
@@ -289,45 +305,47 @@ def buy_stock(symbol):
             }), 400
 
         conn = get_db_connection()
+        cursor = conn.cursor()
 
         # Get stock ID
-        stock = conn.execute(
-            'SELECT id FROM stocks WHERE symbol = ?', (symbol.upper(),)).fetchone()
+        cursor.execute('SELECT id FROM stocks WHERE symbol = %s', (symbol.upper(),))
+        stock = cursor.fetchone()
         if not stock:
             return jsonify({'error': 'Stock not found'}), 404
 
-        stock_id = stock['id']
+        stock_id = stock[0]
 
         # Insert transaction
-        conn.execute('''
+        cursor.execute('''
             INSERT INTO transactions (stock_id, portfolio_id, type, quantity, price, timestamp)
-            VALUES (?, ?, 'BUY', ?, ?, ?)
+            VALUES (%s, %s, 'BUY', %s, %s, %s)
         ''', (stock_id, portfolio_id, quantity, price, datetime.now()))
 
         # Check if holding already exists for this portfolio and stock
-        existing_holding = conn.execute('''
+        cursor.execute('''
             SELECT id, quantity, avg_buy_price FROM holdings 
-            WHERE portfolio_id = ? AND stock_id = ?
-        ''', (portfolio_id, stock_id)).fetchone()
+            WHERE portfolio_id = %s AND stock_id = %s
+        ''', (portfolio_id, stock_id))
+        existing_holding = cursor.fetchone()
 
         if existing_holding:
             # Update existing holding - calculate new average price
-            old_quantity = existing_holding['quantity']
-            old_avg_price = existing_holding['avg_buy_price']
+            old_quantity = existing_holding[1]
+            old_avg_price = existing_holding[2]
             new_quantity = old_quantity + quantity
             new_avg_price = ((old_quantity * old_avg_price) +
                              (quantity * price)) / new_quantity
 
-            conn.execute('''
+            cursor.execute('''
                 UPDATE holdings 
-                SET quantity = ?, avg_buy_price = ?
-                WHERE id = ?
-            ''', (new_quantity, new_avg_price, existing_holding['id']))
+                SET quantity = %s, avg_buy_price = %s
+                WHERE id = %s
+            ''', (new_quantity, new_avg_price, existing_holding[0]))
         else:
             # Create new holding
-            conn.execute('''
+            cursor.execute('''
                 INSERT INTO holdings (portfolio_id, stock_id, quantity, avg_buy_price)
-                VALUES (?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s)
             ''', (portfolio_id, stock_id, quantity, price))
 
         conn.commit()
@@ -368,46 +386,48 @@ def sell_stock(symbol):
             return jsonify({'error': 'Please provide valid portfolio, quantity, and price'}), 400
 
         conn = get_db_connection()
+        cursor = conn.cursor()
 
         # Get stock ID
-        stock = conn.execute(
-            'SELECT id FROM stocks WHERE symbol = ?', (symbol.upper(),)).fetchone()
+        cursor.execute('SELECT id FROM stocks WHERE symbol = %s', (symbol.upper(),))
+        stock = cursor.fetchone()
         if not stock:
             return jsonify({'error': 'Stock not found'}), 404
 
-        stock_id = stock['id']
+        stock_id = stock[0]
 
         # Check if user has enough shares to sell
-        holding = conn.execute('''
+        cursor.execute('''
             SELECT id, quantity, avg_buy_price FROM holdings 
-            WHERE portfolio_id = ? AND stock_id = ?
-        ''', (portfolio_id, stock_id)).fetchone()
+            WHERE portfolio_id = %s AND stock_id = %s
+        ''', (portfolio_id, stock_id))
+        holding = cursor.fetchone()
 
-        if not holding or holding['quantity'] < quantity:
-            available = holding['quantity'] if holding else 0
+        if not holding or holding[1] < quantity:
+            available = holding[1] if holding else 0
             return jsonify({
                 'error': f'Insufficient shares. You have {available} shares but trying to sell {quantity}'
             }), 400
 
         # Insert transaction
-        conn.execute('''
+        cursor.execute('''
             INSERT INTO transactions (stock_id, portfolio_id, type, quantity, price, timestamp)
-            VALUES (?, ?, 'SELL', ?, ?, ?)
+            VALUES (%s, %s, 'SELL', %s, %s, %s)
         ''', (stock_id, portfolio_id, quantity, price, datetime.now()))
 
         # Update holding
-        new_quantity = holding['quantity'] - quantity
+        new_quantity = holding[1] - quantity
 
         if new_quantity == 0:
             # Remove holding if no shares left
-            conn.execute('DELETE FROM holdings WHERE id = ?', (holding['id'],))
+            cursor.execute('DELETE FROM holdings WHERE id = %s', (holding[0],))
         else:
             # Update quantity
-            conn.execute('''
+            cursor.execute('''
                 UPDATE holdings 
-                SET quantity = ?
-                WHERE id = ?
-            ''', (new_quantity, holding['id']))
+                SET quantity = %s
+                WHERE id = %s
+            ''', (new_quantity, holding[0]))
 
         conn.commit()
         conn.close()
@@ -439,24 +459,26 @@ def sell_stock(symbol):
 def get_transactions():
     """Get all transactions"""
     conn = get_db_connection()
-    transactions = conn.execute('''
+    cursor = conn.cursor()
+    cursor.execute('''
         SELECT t.type, s.symbol, s.name, t.quantity, t.price, t.timestamp, p.name as portfolio_name
         FROM transactions t
         JOIN stocks s ON t.stock_id = s.id
         JOIN portfolios p ON t.portfolio_id = p.id
         ORDER BY t.timestamp DESC
         LIMIT 50
-    ''').fetchall()
+    ''')
+    transactions = cursor.fetchall()
     conn.close()
 
     return jsonify([{
-        'type': row['type'],
-        'symbol': row['symbol'],
-        'name': row['name'],
-        'quantity': row['quantity'],
-        'price': float(row['price']),
-        'timestamp': row['timestamp'],
-        'portfolio_name': row['portfolio_name']
+        'type': row[0],
+        'symbol': row[1],
+        'name': row[2],
+        'quantity': row[3],
+        'price': float(row[4]),
+        'timestamp': row[5],
+        'portfolio_name': row[6]
     } for row in transactions])
 
 
@@ -464,9 +486,10 @@ def get_transactions():
 def get_dashboard():
     """Get dashboard data"""
     conn = get_db_connection()
+    cursor = conn.cursor()
 
     # Get portfolio summary
-    portfolios = conn.execute('''
+    cursor.execute('''
         SELECT p.id, p.name, p.description, 
                COUNT(h.id) as holdings_count,
                COALESCE(SUM(h.quantity * s.current_price), 0) as total_value
@@ -475,28 +498,31 @@ def get_dashboard():
         LEFT JOIN stocks s ON h.stock_id = s.id
         GROUP BY p.id, p.name, p.description
         ORDER BY total_value DESC
-    ''').fetchall()
+    ''')
+    portfolios = cursor.fetchall()
 
     # Get total portfolio value
-    total_value = conn.execute('''
+    cursor.execute('''
         SELECT COALESCE(SUM(h.quantity * s.current_price), 0) as total
         FROM holdings h
         JOIN stocks s ON h.stock_id = s.id
-    ''').fetchone()['total']
+    ''')
+    total_value = cursor.fetchone()[0]
 
     # Get total cost basis and profit/loss
-    profit_loss_data = conn.execute('''
+    cursor.execute('''
         SELECT 
             COALESCE(SUM(h.quantity * h.avg_buy_price), 0) as total_cost_basis,
             COALESCE(SUM(h.quantity * s.current_price), 0) as total_current_value,
             COALESCE(SUM(h.quantity * (s.current_price - h.avg_buy_price)), 0) as total_profit_loss
         FROM holdings h
         JOIN stocks s ON h.stock_id = s.id
-    ''').fetchone()
+    ''')
+    profit_loss_data = cursor.fetchone()
 
-    total_cost_basis = float(profit_loss_data['total_cost_basis'])
-    total_current_value = float(profit_loss_data['total_current_value'])
-    total_profit_loss = float(profit_loss_data['total_profit_loss'])
+    total_cost_basis = float(profit_loss_data[0])
+    total_current_value = float(profit_loss_data[1])
+    total_profit_loss = float(profit_loss_data[2])
 
     # Calculate profit/loss percentage
     profit_loss_percentage = 0.0
@@ -504,24 +530,25 @@ def get_dashboard():
         profit_loss_percentage = (total_profit_loss / total_cost_basis) * 100
 
     # Get recent transactions
-    recent_transactions = conn.execute('''
+    cursor.execute('''
         SELECT t.type, s.symbol, s.name, t.quantity, t.price, t.timestamp, p.name as portfolio_name
         FROM transactions t
         JOIN stocks s ON t.stock_id = s.id
         JOIN portfolios p ON t.portfolio_id = p.id
         ORDER BY t.timestamp DESC
         LIMIT 10
-    ''').fetchall()
+    ''')
+    recent_transactions = cursor.fetchall()
 
     conn.close()
 
     return jsonify({
         'portfolios': [{
-            'id': row['id'],
-            'name': row['name'],
-            'description': row['description'],
-            'holdings_count': row['holdings_count'],
-            'total_value': float(row['total_value'])
+            'id': row[0],
+            'name': row[1],
+            'description': row[2],
+            'holdings_count': row[3],
+            'total_value': float(row[4])
         } for row in portfolios],
         'total_value': float(total_value),
         'total_profit_loss': total_profit_loss,
@@ -529,13 +556,13 @@ def get_dashboard():
         'total_cost_basis': total_cost_basis,
         'account_balance': get_account_balance(),
         'recent_transactions': [{
-            'type': row['type'],
-            'symbol': row['symbol'],
-            'name': row['name'],
-            'quantity': row['quantity'],
-            'price': float(row['price']),
-            'timestamp': row['timestamp'],
-            'portfolio_name': row['portfolio_name']
+            'type': row[0],
+            'symbol': row[1],
+            'name': row[2],
+            'quantity': row[3],
+            'price': float(row[4]),
+            'timestamp': row[5],
+            'portfolio_name': row[6]
         } for row in recent_transactions]
     })
 
@@ -544,26 +571,29 @@ def get_dashboard():
 def api_portfolio_value(portfolio_id):
     """API endpoint to get portfolio value"""
     conn = get_db_connection()
-    result = conn.execute('''
+    cursor = conn.cursor()
+    cursor.execute('''
         SELECT COALESCE(SUM(h.quantity * s.current_price), 0) as value
         FROM holdings h
         JOIN stocks s ON h.stock_id = s.id
-        WHERE h.portfolio_id = ?
-    ''', (portfolio_id,)).fetchone()
+        WHERE h.portfolio_id = %s
+    ''', (portfolio_id,))
+    result = cursor.fetchone()
     conn.close()
 
-    return jsonify({'value': float(result['value'])})
+    return jsonify({'value': float(result[0])})
 
 
 @app.route('/api/stocks/prices')
 def api_stock_prices():
     """API endpoint to get all stock prices"""
     conn = get_db_connection()
-    stocks = conn.execute(
-        'SELECT symbol, current_price FROM stocks ORDER BY symbol').fetchall()
+    cursor = conn.cursor()
+    cursor.execute('SELECT symbol, current_price FROM stocks ORDER BY symbol')
+    stocks = cursor.fetchall()
     conn.close()
 
-    return jsonify({stock['symbol']: float(stock['current_price']) for stock in stocks})
+    return jsonify({stock[0]: float(stock[1]) for stock in stocks})
 
 
 @app.route('/api/account/balance')
@@ -578,24 +608,26 @@ def api_net_worth_history():
     limit = request.args.get('limit', 50, type=int)
 
     conn = get_db_connection()
-    history = conn.execute('''
+    cursor = conn.cursor()
+    cursor.execute('''
         SELECT date, account_balance, portfolio_value, total_net_worth, timestamp
         FROM net_worth_history 
         WHERE user_id = 1 
         ORDER BY timestamp DESC 
-        LIMIT ?
-    ''', (limit,)).fetchall()
+        LIMIT %s
+    ''', (limit,))
+    history = cursor.fetchall()
     conn.close()
 
     # Reverse to get chronological order
     history = list(reversed(history))
 
     return jsonify([{
-        'date': row['date'],
-        'timestamp': row['timestamp'],
-        'account_balance': float(row['account_balance']),
-        'portfolio_value': float(row['portfolio_value']),
-        'total_net_worth': float(row['total_net_worth'])
+        'date': row[0],
+        'timestamp': row[4],
+        'account_balance': float(row[1]),
+        'portfolio_value': float(row[2]),
+        'total_net_worth': float(row[3])
     } for row in history])
 
 
