@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Table, Alert, Spinner, InputGroup, FormControl } from 'react-bootstrap';
+import { Row, Col, Card, Table, Alert, Spinner, InputGroup, FormControl, Button, Modal, Form, ButtonGroup } from 'react-bootstrap';
 import { Link, useSearchParams } from 'react-router-dom';
 import portfolioAPI from '../api';
-import { Stock } from '../types';
+import { Stock, Portfolio, TradeRequest } from '../types';
 
 // Component for stock logo with fallback
 const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
@@ -120,18 +120,41 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
 }; const Stocks: React.FC = () => {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [filteredStocks, setFilteredStocks] = useState<Stock[]>([]);
+  const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [accountBalance, setAccountBalance] = useState<number>(0);
+
+  // Quick trade modal state
+  const [showTradeModal, setShowTradeModal] = useState(false);
+  const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
+  const [tradeType, setTradeType] = useState<'BUY' | 'SELL'>('BUY');
+  const [tradeLoading, setTradeLoading] = useState(false);
+  const [tradeError, setTradeError] = useState<string | null>(null);
+  const [tradeSuccess, setTradeSuccess] = useState<string | null>(null);
+
+  const [tradeForm, setTradeForm] = useState({
+    portfolio_id: '',
+    amount: '',
+    shares: '',
+    inputType: 'amount' as 'amount' | 'shares'
+  });
 
   useEffect(() => {
-    const fetchStocks = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const data = await portfolioAPI.getStocks();
-        setStocks(data);
-        setFilteredStocks(data);
+        const [stocksData, portfoliosData, balanceData] = await Promise.all([
+          portfolioAPI.getStocks(),
+          portfolioAPI.getPortfolios(),
+          portfolioAPI.getAccountBalance()
+        ]);
+        setStocks(stocksData);
+        setFilteredStocks(stocksData);
+        setPortfolios(portfoliosData);
+        setAccountBalance(balanceData.balance);
 
         // Check if there's a search parameter from navigation
         const urlSearchTerm = searchParams.get('search');
@@ -141,14 +164,14 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
           setSearchParams({});
         }
       } catch (err) {
-        setError('Failed to fetch stocks');
+        setError('Failed to fetch data');
         console.error(err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchStocks();
+    fetchData();
   }, [searchParams, setSearchParams]);
 
   useEffect(() => {
@@ -192,6 +215,114 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
 
     setFilteredStocks(filtered);
   }, [searchTerm, stocks]);
+
+  const openTradeModal = (stock: Stock, type: 'BUY' | 'SELL') => {
+    setSelectedStock(stock);
+    setTradeType(type);
+    setShowTradeModal(true);
+    setTradeError(null);
+    setTradeSuccess(null);
+    setTradeForm({
+      portfolio_id: '',
+      amount: '',
+      shares: '',
+      inputType: 'amount'
+    });
+  };
+
+  const closeTradeModal = () => {
+    setShowTradeModal(false);
+    setSelectedStock(null);
+    setTradeError(null);
+    setTradeSuccess(null);
+  };
+
+  const handleTrade = async () => {
+    if (!selectedStock || !tradeForm.portfolio_id) {
+      setTradeError('Please fill in all required fields');
+      return;
+    }
+
+    const currentPrice = selectedStock.current_price;
+    let quantity = 0;
+    let totalAmount = 0;
+
+    // Calculate quantity and amount based on input type
+    if (tradeForm.inputType === 'amount') {
+      if (!tradeForm.amount) {
+        setTradeError('Please enter an amount');
+        return;
+      }
+      totalAmount = parseFloat(tradeForm.amount);
+      quantity = Math.floor(totalAmount / currentPrice);
+
+      if (quantity <= 0) {
+        setTradeError('Amount must be sufficient to buy at least 1 share');
+        return;
+      }
+    } else {
+      if (!tradeForm.shares) {
+        setTradeError('Please enter number of shares');
+        return;
+      }
+      quantity = parseInt(tradeForm.shares);
+      totalAmount = quantity * currentPrice;
+
+      if (quantity <= 0) {
+        setTradeError('Number of shares must be greater than 0');
+        return;
+      }
+    }
+
+    try {
+      setTradeLoading(true);
+      setTradeError(null);
+
+      const tradeData: TradeRequest = {
+        portfolio_id: parseInt(tradeForm.portfolio_id),
+        quantity: quantity,
+        price: currentPrice
+      };
+
+      let response;
+      if (tradeType === 'BUY') {
+        response = await portfolioAPI.buyStock(selectedStock.symbol, tradeData);
+      } else {
+        response = await portfolioAPI.sellStock(selectedStock.symbol, tradeData);
+      }
+
+      setTradeSuccess(response.message);
+
+      // Refresh stocks and account balance
+      const [updatedStocks, balanceData] = await Promise.all([
+        portfolioAPI.getStocks(),
+        portfolioAPI.getAccountBalance()
+      ]);
+      setStocks(updatedStocks);
+      setFilteredStocks(updatedStocks.filter(stock =>
+        stock.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        stock.name.toLowerCase().includes(searchTerm.toLowerCase())
+      ));
+      setAccountBalance(balanceData.balance);
+
+      // Reset form
+      setTradeForm({
+        portfolio_id: '',
+        amount: '',
+        shares: '',
+        inputType: 'amount'
+      });
+
+      // Close modal after a delay
+      setTimeout(() => {
+        closeTradeModal();
+      }, 2000);
+    } catch (err: any) {
+      setTradeError(err.response?.data?.error || `Failed to ${tradeType.toLowerCase()} stock`);
+    } finally {
+      setTradeLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -267,9 +398,23 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
                       {formatCurrency(stock.total_value_held)}
                     </td>
                     <td>
-                      <Link to={`/stock/${stock.symbol}`} className="btn btn-sm btn-primary">
-                        View Details
-                      </Link>
+                      <div className="d-flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="success"
+                          onClick={() => openTradeModal(stock, 'BUY')}
+                        >
+                          Buy
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() => openTradeModal(stock, 'SELL')}
+                          disabled={stock.total_shares_held === 0}
+                        >
+                          Sell
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -278,6 +423,165 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
           )}
         </Card.Body>
       </Card>
+
+      {/* Quick Trade Modal */}
+      <Modal show={showTradeModal} onHide={closeTradeModal} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            {tradeType} {selectedStock?.symbol} - {selectedStock?.name}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {tradeSuccess && (
+            <Alert variant="success" className="mb-3">
+              {tradeSuccess}
+            </Alert>
+          )}
+          {tradeError && (
+            <Alert variant="danger" className="mb-3">
+              {tradeError}
+            </Alert>
+          )}
+
+          {selectedStock && (
+            <div>
+              {/* Stock Info */}
+              <Row className="mb-3">
+                <Col>
+                  <div className="d-flex align-items-center p-3 border rounded bg-light">
+                    <StockLogo symbol={selectedStock.symbol} name={selectedStock.name} size={40} />
+                    <div className="flex-grow-1">
+                      <h6 className="mb-0">{selectedStock.symbol}</h6>
+                      <small className="text-muted">{selectedStock.name}</small>
+                    </div>
+                    <div className="text-end">
+                      <h5 className="mb-0">{formatCurrency(selectedStock.current_price)}</h5>
+                      <small className="text-muted">Current Price</small>
+                    </div>
+                  </div>
+                </Col>
+              </Row>
+
+              {/* Account Balance */}
+              <Row className="mb-3">
+                <Col>
+                  <Alert variant="info">
+                    <strong>Available Balance:</strong> {formatCurrency(accountBalance)}
+                    {tradeType === 'SELL' && selectedStock.total_shares_held > 0 && (
+                      <span className="ms-3">
+                        <strong>Shares Held:</strong> {selectedStock.total_shares_held}
+                      </span>
+                    )}
+                  </Alert>
+                </Col>
+              </Row>
+
+              {/* Input Type Toggle */}
+              <Row className="mb-3">
+                <Col>
+                  <Form.Label>Input Type</Form.Label>
+                  <ButtonGroup className="w-100">
+                    <Button
+                      variant={tradeForm.inputType === 'amount' ? 'primary' : 'outline-primary'}
+                      onClick={() => setTradeForm({ ...tradeForm, inputType: 'amount' })}
+                    >
+                      Dollar Amount
+                    </Button>
+                    <Button
+                      variant={tradeForm.inputType === 'shares' ? 'primary' : 'outline-primary'}
+                      onClick={() => setTradeForm({ ...tradeForm, inputType: 'shares' })}
+                    >
+                      Number of Shares
+                    </Button>
+                  </ButtonGroup>
+                </Col>
+              </Row>
+
+              {/* Trade Form */}
+              <Row className="mb-3">
+                <Col md={6}>
+                  {tradeForm.inputType === 'amount' ? (
+                    <Form.Group>
+                      <Form.Label>Amount ($)</Form.Label>
+                      <Form.Control
+                        type="number"
+                        step="0.01"
+                        value={tradeForm.amount}
+                        onChange={(e) => setTradeForm({ ...tradeForm, amount: e.target.value })}
+                        placeholder="Enter dollar amount"
+                        min="0"
+                      />
+                    </Form.Group>
+                  ) : (
+                    <Form.Group>
+                      <Form.Label>Number of Shares</Form.Label>
+                      <Form.Control
+                        type="number"
+                        value={tradeForm.shares}
+                        onChange={(e) => setTradeForm({ ...tradeForm, shares: e.target.value })}
+                        placeholder="Enter number of shares"
+                        min="1"
+                      />
+                    </Form.Group>
+                  )}
+                </Col>
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label>Portfolio</Form.Label>
+                    <Form.Select
+                      value={tradeForm.portfolio_id}
+                      onChange={(e) => setTradeForm({ ...tradeForm, portfolio_id: e.target.value })}
+                    >
+                      <option value="">Select Portfolio</option>
+                      {portfolios.map((portfolio) => (
+                        <option key={portfolio.id} value={portfolio.id}>
+                          {portfolio.name}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              {/* Trade Summary */}
+              {((tradeForm.inputType === 'amount' && tradeForm.amount) ||
+                (tradeForm.inputType === 'shares' && tradeForm.shares)) && (
+                  <Alert variant="light" className="mb-3">
+                    <h6>Trade Summary:</h6>
+                    {tradeForm.inputType === 'amount' ? (
+                      <>
+                        <div>Estimated shares: {Math.floor(parseFloat(tradeForm.amount) / selectedStock.current_price)}</div>
+                        <div>Total cost: {formatCurrency(Math.floor(parseFloat(tradeForm.amount) / selectedStock.current_price) * selectedStock.current_price)}</div>
+                      </>
+                    ) : (
+                      <>
+                        <div>Shares to {tradeType.toLowerCase()}: {tradeForm.shares}</div>
+                        <div>Total {tradeType === 'BUY' ? 'cost' : 'proceeds'}: {formatCurrency(parseInt(tradeForm.shares) * selectedStock.current_price)}</div>
+                      </>
+                    )}
+                  </Alert>
+                )}
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={closeTradeModal}>
+            Cancel
+          </Button>
+          <Button
+            variant={tradeType === 'BUY' ? 'success' : 'danger'}
+            onClick={handleTrade}
+            disabled={
+              tradeLoading ||
+              !tradeForm.portfolio_id ||
+              (tradeForm.inputType === 'amount' && !tradeForm.amount) ||
+              (tradeForm.inputType === 'shares' && !tradeForm.shares)
+            }
+          >
+            {tradeLoading ? 'Processing...' : `${tradeType} ${selectedStock?.symbol || 'Stock'}`}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };
