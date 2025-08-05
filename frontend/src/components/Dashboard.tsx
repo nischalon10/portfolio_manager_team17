@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Row, Col, Card, Table, Alert, Spinner } from 'react-bootstrap';
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Link } from 'react-router-dom';
 import portfolioAPI from '../api';
 import { DashboardData, NetWorthHistoryItem, Stock } from '../types';
@@ -198,7 +198,6 @@ const Dashboard: React.FC = () => {
               else if (index < (2 * dataLength) / 6) return "5 Days";
               else if (index < (3 * dataLength) / 6) return "10 Days";
               else if (index < (4 * dataLength) / 6) return "15 Days";
-              else if (index < (5 * dataLength) / 6) return "1M";
               else return "1M";
             }}
             interval="preserveStartEnd"
@@ -250,63 +249,83 @@ const Dashboard: React.FC = () => {
 </Col>
 
         {/* Donut Chart for Portfolios */}
-       <Col lg={4}>
+     <Col lg={4}>
   <Card className="mb-4" style={{ minHeight: '200px', maxWidth: '400px', margin: '0 auto' }}>
     <Card.Header style={{ minHeight: '56px', display: 'flex', alignItems: 'center' }}>
       <h5 style={{ fontSize: '1.25rem', marginBottom: '0.2rem' }}>Market Value</h5>
     </Card.Header>
-    <Card.Body style={{ padding: '0 10px',paddingTop: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <ResponsiveContainer width="100%" height={243}>
-        <PieChart>
-          {(() => {
-            const portfolios = dashboardData.portfolios.slice(0, 4);
-            const totalValue = portfolios.reduce((sum, p) => sum + p.total_value, 0);
-            const data = portfolios.map(p => ({
-              name: p.name,
-              percent: totalValue ? (p.total_value / totalValue) * 100 : 0,
-            }));
-            return (
-              <Pie
-                data={data}
-                dataKey="percent"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={80}
-                outerRadius={120}
-                label={false}
-              >
-                {data.map((entry, idx) => (
-                  <Cell
-                    key={`cell-${idx}`}
-                    fill={["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#A28DFF", "#FF6F91"][idx % 6]}
-                  />
-                ))}
-              </Pie>
-            );
-          })()}
-          <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
-        </PieChart>
-      </ResponsiveContainer>
+    <Card.Body style={{ padding: '0 10px', paddingTop: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      {(() => {
+        // ✅ Get only portfolios with non-zero value
+        const validPortfolios = dashboardData.portfolios.filter(p => p.total_value > 0);
+        const totalValue = validPortfolios.reduce((sum, p) => sum + p.total_value, 0);
 
-      {/* Manual Legend Below Chart */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', marginTop: '10px' }}>
-        {dashboardData.portfolios.slice(0, 4).map((p, idx) => (
-          <div key={p.name} style={{ display: 'flex', alignItems: 'center', margin: '4px 8px' }}>
-            <div style={{
-              width: 12,
-              height: 12,
-              backgroundColor: ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"][idx % 4],
-              marginRight: 6,
-              borderRadius: 2
-            }} />
-            <span style={{ fontSize: '0.8rem' }}>{p.name}</span>
-          </div>
-        ))}
-      </div>
+        // ✅ Map to chart-friendly format
+        const data = validPortfolios.map(p => ({
+          name: p.name,
+          percent: totalValue ? (p.total_value / totalValue) * 100 : 0,
+        }));
+
+        const colors = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#A28DFF", "#FF6F91"];
+
+        return (
+          <>
+            <ResponsiveContainer width="100%" height={243}>
+              <PieChart>
+                <Pie
+                  data={data}
+                  dataKey="percent"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={80}
+                  outerRadius={120}
+                  label={false}
+                >
+                  {data.map((_, idx) => (
+                    <Cell key={`cell-${idx}`} fill={colors[idx % colors.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value: number) => `${value.toFixed(1)}%`}
+                  contentStyle={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    boxShadow: 'none',
+                    color: '#333',
+                    fontStyle: 'italic'
+                  }}
+                  labelStyle={{
+                    color: '#333',
+                    fontWeight: 'bold',
+                    fontStyle: 'italic'
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+
+            {/* ✅ Only legend for what's shown on chart */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', marginTop: '10px' }}>
+              {data.map((entry, idx) => (
+                <div key={entry.name} style={{ display: 'flex', alignItems: 'center', margin: '4px 8px' }}>
+                  <div style={{
+                    width: 12,
+                    height: 12,
+                    backgroundColor: colors[idx % colors.length],
+                    marginRight: 6,
+                    borderRadius: 2
+                  }} />
+                  <span style={{ fontSize: '0.8rem' }}>{entry.name}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        );
+      })()}
     </Card.Body>
   </Card>
 </Col>
+
 
 
       </Row>
