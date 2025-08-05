@@ -125,23 +125,20 @@ const StockDetailComponent: React.FC = () => {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showBuyModal, setShowBuyModal] = useState(false);
-  const [showSellModal, setShowSellModal] = useState(false);
+  const [showTradeModal, setShowTradeModal] = useState(false);
   const [tradeLoading, setTradeLoading] = useState(false);
   const [tradeError, setTradeError] = useState<string | null>(null);
   const [tradeSuccess, setTradeSuccess] = useState<string | null>(null);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
+  const [accountBalance, setAccountBalance] = useState<number>(0);
+  const [tradeType, setTradeType] = useState<'BUY' | 'SELL'>('BUY');
 
-  const [buyForm, setBuyForm] = useState({
+  const [tradeForm, setTradeForm] = useState({
     portfolio_id: '',
-    quantity: '',
-    price: ''
-  });
-
-  const [sellForm, setSellForm] = useState({
-    portfolio_id: '',
-    quantity: '',
-    price: ''
+    amount: '',
+    shares: '',
+    selectedStock: symbol || '',
+    inputType: 'amount' as 'amount' | 'shares'
   });
 
   useEffect(() => {
@@ -150,16 +147,20 @@ const StockDetailComponent: React.FC = () => {
 
       try {
         setLoading(true);
-        const [stockData, portfolioData] = await Promise.all([
+        const [stockData, portfolioData, balanceData] = await Promise.all([
           portfolioAPI.getStockDetail(symbol),
-          portfolioAPI.getPortfolios()
+          portfolioAPI.getPortfolios(),
+          portfolioAPI.getAccountBalance()
         ]);
         setStockDetail(stockData);
         setPortfolios(portfolioData);
+        setAccountBalance(balanceData.balance);
 
-        // Set current price in forms
-        setBuyForm(prev => ({ ...prev, price: stockData.stock.current_price.toString() }));
-        setSellForm(prev => ({ ...prev, price: stockData.stock.current_price.toString() }));
+        // Set initial stock selection in trade form
+        setTradeForm(prev => ({
+          ...prev,
+          selectedStock: symbol
+        }));
       } catch (err) {
         setError('Failed to fetch stock details');
         console.error(err);
@@ -171,10 +172,55 @@ const StockDetailComponent: React.FC = () => {
     fetchData();
   }, [symbol]);
 
-  const handleBuy = async () => {
-    if (!symbol || !buyForm.portfolio_id || !buyForm.quantity || !buyForm.price) {
-      setTradeError('Please fill in all fields');
+  const handleTrade = async () => {
+    if (!symbol || !tradeForm.portfolio_id) {
+      setTradeError('Please fill in all required fields');
       return;
+    }
+
+    if (!stockDetail) {
+      setTradeError('Stock details not loaded');
+      return;
+    }
+
+    const currentPrice = stockDetail.stock.current_price;
+    let quantity = 0;
+    let totalAmount = 0;
+
+    // Calculate quantity and amount based on input type
+    if (tradeForm.inputType === 'amount') {
+      if (!tradeForm.amount) {
+        setTradeError('Please enter an amount');
+        return;
+      }
+      totalAmount = parseFloat(tradeForm.amount);
+      quantity = Math.floor(totalAmount / currentPrice);
+
+      if (quantity <= 0) {
+        setTradeError('Amount must be sufficient to buy at least 1 share');
+        return;
+      }
+    } else {
+      if (!tradeForm.shares) {
+        setTradeError('Please enter number of shares');
+        return;
+      }
+      quantity = parseInt(tradeForm.shares);
+      totalAmount = quantity * currentPrice;
+
+      if (quantity <= 0) {
+        setTradeError('Number of shares must be greater than 0');
+        return;
+      }
+    }
+
+    // For sell orders, check if user has enough shares
+    if (tradeType === 'SELL') {
+      const holding = stockDetail.holdings.find(h => h.portfolio_id?.toString() === tradeForm.portfolio_id);
+      if (!holding || holding.quantity < quantity) {
+        setTradeError(`Insufficient shares. Available: ${holding?.quantity || 0} shares`);
+        return;
+      }
     }
 
     try {
@@ -182,64 +228,39 @@ const StockDetailComponent: React.FC = () => {
       setTradeError(null);
 
       const tradeData: TradeRequest = {
-        portfolio_id: parseInt(buyForm.portfolio_id),
-        quantity: parseInt(buyForm.quantity),
-        price: parseFloat(buyForm.price)
+        portfolio_id: parseInt(tradeForm.portfolio_id),
+        quantity: quantity,
+        price: currentPrice
       };
 
-      const response = await portfolioAPI.buyStock(symbol, tradeData);
-      setTradeSuccess(response.message);
-      setShowBuyModal(false);
+      let response;
+      if (tradeType === 'BUY') {
+        response = await portfolioAPI.buyStock(symbol, tradeData);
+      } else {
+        response = await portfolioAPI.sellStock(symbol, tradeData);
+      }
 
-      // Refresh stock detail
-      const updatedStock = await portfolioAPI.getStockDetail(symbol);
+      setTradeSuccess(response.message);
+      setShowTradeModal(false);
+
+      // Refresh stock detail and account balance
+      const [updatedStock, balanceData] = await Promise.all([
+        portfolioAPI.getStockDetail(symbol),
+        portfolioAPI.getAccountBalance()
+      ]);
       setStockDetail(updatedStock);
+      setAccountBalance(balanceData.balance);
 
       // Reset form
-      setBuyForm({
+      setTradeForm({
         portfolio_id: '',
-        quantity: '',
-        price: updatedStock.stock.current_price.toString()
+        amount: '',
+        shares: '',
+        selectedStock: symbol,
+        inputType: 'amount'
       });
     } catch (err: any) {
-      setTradeError(err.response?.data?.error || 'Failed to buy stock');
-    } finally {
-      setTradeLoading(false);
-    }
-  };
-
-  const handleSell = async () => {
-    if (!symbol || !sellForm.portfolio_id || !sellForm.quantity || !sellForm.price) {
-      setTradeError('Please fill in all fields');
-      return;
-    }
-
-    try {
-      setTradeLoading(true);
-      setTradeError(null);
-
-      const tradeData: TradeRequest = {
-        portfolio_id: parseInt(sellForm.portfolio_id),
-        quantity: parseInt(sellForm.quantity),
-        price: parseFloat(sellForm.price)
-      };
-
-      const response = await portfolioAPI.sellStock(symbol, tradeData);
-      setTradeSuccess(response.message);
-      setShowSellModal(false);
-
-      // Refresh stock detail
-      const updatedStock = await portfolioAPI.getStockDetail(symbol);
-      setStockDetail(updatedStock);
-
-      // Reset form
-      setSellForm({
-        portfolio_id: '',
-        quantity: '',
-        price: updatedStock.stock.current_price.toString()
-      });
-    } catch (err: any) {
-      setTradeError(err.response?.data?.error || 'Failed to sell stock');
+      setTradeError(err.response?.data?.error || `Failed to ${tradeType.toLowerCase()} stock`);
     } finally {
       setTradeLoading(false);
     }
@@ -352,10 +373,16 @@ const StockDetailComponent: React.FC = () => {
       {/* Trading Buttons */}
       <Row className="mb-4">
         <Col>
-          <Button variant="success" className="me-2" onClick={() => setShowBuyModal(true)}>
+          <Button variant="success" className="me-2" onClick={() => {
+            setTradeType('BUY');
+            setShowTradeModal(true);
+          }}>
             Buy Stock
           </Button>
-          <Button variant="danger" className="me-2" onClick={() => setShowSellModal(true)} disabled={totalHoldings === 0}>
+          <Button variant="danger" className="me-2" onClick={() => {
+            setTradeType('SELL');
+            setShowTradeModal(true);
+          }} disabled={totalHoldings === 0}>
             Sell Stock
           </Button>
           <Button
@@ -460,124 +487,286 @@ const StockDetailComponent: React.FC = () => {
         </Col>
       </Row>
 
-      {/* Buy Modal */}
-      <Modal show={showBuyModal} onHide={() => setShowBuyModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Buy {stockDetail.stock.symbol}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Portfolio</Form.Label>
-              <Form.Select
-                value={buyForm.portfolio_id}
-                onChange={(e) => setBuyForm({ ...buyForm, portfolio_id: e.target.value })}
+      {/* Modern Trade Modal */}
+      <Modal show={showTradeModal} onHide={() => setShowTradeModal(false)} size="lg" centered>
+        <Modal.Body className="p-0">
+          <div style={{ padding: '24px' }}>
+            {/* Tab-style Buy/Sell Toggle */}
+            <div className="d-flex mb-4">
+              <Button
+                variant={tradeType === 'BUY' ? 'primary' : 'outline-secondary'}
+                className="flex-fill me-2"
+                style={{
+                  borderRadius: '8px',
+                  padding: '12px',
+                  fontWeight: '600',
+                  border: tradeType === 'BUY' ? '2px solid #007bff' : '2px solid #e9ecef'
+                }}
+                onClick={() => setTradeType('BUY')}
               >
-                <option value="">Select Portfolio</option>
-                {portfolios.map((portfolio) => (
-                  <option key={portfolio.id} value={portfolio.id}>
-                    {portfolio.name}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Quantity</Form.Label>
-              <Form.Control
-                type="number"
-                value={buyForm.quantity}
-                onChange={(e) => setBuyForm({ ...buyForm, quantity: e.target.value })}
-                min="1"
-              />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Price per Share</Form.Label>
-              <Form.Control
-                type="number"
-                step="0.01"
-                value={buyForm.price}
-                onChange={(e) => setBuyForm({ ...buyForm, price: e.target.value })}
-                min="0.01"
-              />
-            </Form.Group>
-            {buyForm.quantity && buyForm.price && (
-              <Alert variant="info">
-                Total Cost: {formatCurrency(parseFloat(buyForm.quantity) * parseFloat(buyForm.price))}
-              </Alert>
-            )}
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowBuyModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="success" onClick={handleBuy} disabled={tradeLoading}>
-            {tradeLoading ? 'Processing...' : 'Buy'}
-          </Button>
-        </Modal.Footer>
-      </Modal>
+                Buy
+              </Button>
+              <Button
+                variant={tradeType === 'SELL' ? 'primary' : 'outline-secondary'}
+                className="flex-fill ms-2"
+                style={{
+                  borderRadius: '8px',
+                  padding: '12px',
+                  fontWeight: '600',
+                  border: tradeType === 'SELL' ? '2px solid #007bff' : '2px solid #e9ecef'
+                }}
+                onClick={() => setTradeType('SELL')}
+              >
+                Sell
+              </Button>
+            </div>
 
-      {/* Sell Modal */}
-      <Modal show={showSellModal} onHide={() => setShowSellModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Sell {stockDetail.stock.symbol}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Portfolio</Form.Label>
+            {/* Available Balance */}
+            <div className="mb-3">
+              <span className="text-muted" style={{ fontSize: '14px' }}>
+                {tradeType === 'BUY' ? 'From' : 'Available'}
+              </span>
+              <span className="float-end text-muted" style={{ fontSize: '14px' }}>
+                Available: {formatCurrency(accountBalance)}
+              </span>
+            </div>
+
+            {/* Input Type Toggle */}
+            <div className="mb-3">
+              <div className="d-flex border rounded p-1" style={{ backgroundColor: '#f8f9fa' }}>
+                <Button
+                  variant={tradeForm.inputType === 'amount' ? 'primary' : 'light'}
+                  size="sm"
+                  className="flex-fill me-1"
+                  style={{
+                    borderRadius: '6px',
+                    fontWeight: '500',
+                    fontSize: '14px'
+                  }}
+                  onClick={() => setTradeForm({ ...tradeForm, inputType: 'amount' })}
+                >
+                  Dollar Amount
+                </Button>
+                <Button
+                  variant={tradeForm.inputType === 'shares' ? 'primary' : 'light'}
+                  size="sm"
+                  className="flex-fill ms-1"
+                  style={{
+                    borderRadius: '6px',
+                    fontWeight: '500',
+                    fontSize: '14px'
+                  }}
+                  onClick={() => setTradeForm({ ...tradeForm, inputType: 'shares' })}
+                >
+                  Number of Shares
+                </Button>
+              </div>
+            </div>
+
+            {/* Large Input Field - Dollar Amount or Shares */}
+            <div className="mb-4">
+              {tradeForm.inputType === 'amount' ? (
+                <div className="input-group" style={{ fontSize: '32px', fontWeight: '600' }}>
+                  <span className="input-group-text" style={{
+                    fontSize: '32px',
+                    fontWeight: '600',
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    padding: '0'
+                  }}>
+                    $
+                  </span>
+                  <Form.Control
+                    type="number"
+                    step="0.01"
+                    value={tradeForm.amount}
+                    onChange={(e) => setTradeForm({ ...tradeForm, amount: e.target.value })}
+                    placeholder="0.00"
+                    style={{
+                      fontSize: '32px',
+                      fontWeight: '600',
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      outline: 'none',
+                      boxShadow: 'none',
+                      padding: '0',
+                      borderBottom: '2px solid #dee2e6'
+                    }}
+                    min="0"
+                  />
+                </div>
+              ) : (
+                <div className="d-flex align-items-center" style={{ fontSize: '32px', fontWeight: '600' }}>
+                  <Form.Control
+                    type="number"
+                    value={tradeForm.shares}
+                    onChange={(e) => setTradeForm({ ...tradeForm, shares: e.target.value })}
+                    placeholder="0"
+                    style={{
+                      fontSize: '32px',
+                      fontWeight: '600',
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      outline: 'none',
+                      boxShadow: 'none',
+                      padding: '0',
+                      borderBottom: '2px solid #dee2e6',
+                      textAlign: 'right'
+                    }}
+                    min="1"
+                  />
+                  <span className="ms-3 text-muted" style={{ fontSize: '18px' }}>
+                    shares
+                  </span>
+                </div>
+              )}
+            </div>            {/* Stock Selector */}
+            <div className="mb-4">
+              <div className="d-flex align-items-center p-3 border rounded" style={{ backgroundColor: '#f8f9fa' }}>
+                {stockDetail && (
+                  <>
+                    <StockLogo symbol={stockDetail.stock.symbol} name={stockDetail.stock.name} size={32} />
+                    <div className="flex-grow-1">
+                      <div style={{ fontWeight: '600', fontSize: '16px' }}>
+                        {stockDetail.stock.symbol}
+                      </div>
+                      <div className="text-muted" style={{ fontSize: '14px' }}>
+                        {stockDetail.stock.name}
+                      </div>
+                    </div>
+                    <div className="text-end">
+                      <div style={{ fontWeight: '600', fontSize: '16px' }}>
+                        {formatCurrency(stockDetail.stock.current_price)}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Portfolio Selection */}
+            <div className="mb-4">
+              <Form.Label style={{ fontWeight: '600', marginBottom: '8px' }}>
+                {tradeType === 'BUY' ? 'Add to Portfolio' : 'Sell from Portfolio'}
+              </Form.Label>
               <Form.Select
-                value={sellForm.portfolio_id}
-                onChange={(e) => setSellForm({ ...sellForm, portfolio_id: e.target.value })}
+                value={tradeForm.portfolio_id}
+                onChange={(e) => setTradeForm({ ...tradeForm, portfolio_id: e.target.value })}
+                style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '2px solid #e9ecef'
+                }}
               >
                 <option value="">Select Portfolio</option>
-                {stockDetail.holdings.map((holding) => (
-                  <option key={holding.portfolio_id} value={holding.portfolio_id}>
-                    {holding.portfolio_name} ({holding.quantity} shares)
-                  </option>
-                ))}
+                {tradeType === 'BUY' ? (
+                  portfolios.map((portfolio) => (
+                    <option key={portfolio.id} value={portfolio.id}>
+                      {portfolio.name}
+                    </option>
+                  ))
+                ) : (
+                  stockDetail?.holdings.map((holding) => (
+                    <option key={holding.portfolio_id} value={holding.portfolio_id}>
+                      {holding.portfolio_name} ({holding.quantity} shares available)
+                    </option>
+                  ))
+                )}
               </Form.Select>
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Quantity</Form.Label>
-              <Form.Control
-                type="number"
-                value={sellForm.quantity}
-                onChange={(e) => setSellForm({ ...sellForm, quantity: e.target.value })}
-                min="1"
-                max={stockDetail.holdings.find(h => h.portfolio_id?.toString() === sellForm.portfolio_id)?.quantity || 0}
-              />
-              {sellForm.portfolio_id && (
-                <Form.Text className="text-muted">
-                  Available: {stockDetail.holdings.find(h => h.portfolio_id?.toString() === sellForm.portfolio_id)?.quantity || 0} shares
-                </Form.Text>
+            </div>
+
+            {/* Trade Summary */}
+            {((tradeForm.inputType === 'amount' && tradeForm.amount) ||
+              (tradeForm.inputType === 'shares' && tradeForm.shares)) && stockDetail && (
+                <Alert variant="light" className="mb-4" style={{ backgroundColor: '#f8f9fa', border: '1px solid #e9ecef' }}>
+                  {tradeForm.inputType === 'amount' ? (
+                    <>
+                      <div className="d-flex justify-content-between">
+                        <span>Estimated shares:</span>
+                        <span style={{ fontWeight: '600' }}>
+                          {Math.floor(parseFloat(tradeForm.amount) / stockDetail.stock.current_price)} shares
+                        </span>
+                      </div>
+                      <div className="d-flex justify-content-between">
+                        <span>Price per share:</span>
+                        <span style={{ fontWeight: '600' }}>
+                          {formatCurrency(stockDetail.stock.current_price)}
+                        </span>
+                      </div>
+                      <div className="d-flex justify-content-between">
+                        <span>Total cost:</span>
+                        <span style={{ fontWeight: '600' }}>
+                          {formatCurrency(Math.floor(parseFloat(tradeForm.amount) / stockDetail.stock.current_price) * stockDetail.stock.current_price)}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="d-flex justify-content-between">
+                        <span>Shares to {tradeType.toLowerCase()}:</span>
+                        <span style={{ fontWeight: '600' }}>
+                          {tradeForm.shares} shares
+                        </span>
+                      </div>
+                      <div className="d-flex justify-content-between">
+                        <span>Price per share:</span>
+                        <span style={{ fontWeight: '600' }}>
+                          {formatCurrency(stockDetail.stock.current_price)}
+                        </span>
+                      </div>
+                      <div className="d-flex justify-content-between">
+                        <span>Total {tradeType === 'BUY' ? 'cost' : 'proceeds'}:</span>
+                        <span style={{ fontWeight: '600' }}>
+                          {formatCurrency(parseInt(tradeForm.shares) * stockDetail.stock.current_price)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </Alert>
               )}
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Price per Share</Form.Label>
-              <Form.Control
-                type="number"
-                step="0.01"
-                value={sellForm.price}
-                onChange={(e) => setSellForm({ ...sellForm, price: e.target.value })}
-                min="0.01"
-              />
-            </Form.Group>
-            {sellForm.quantity && sellForm.price && (
-              <Alert variant="info">
-                Total Proceeds: {formatCurrency(parseFloat(sellForm.quantity) * parseFloat(sellForm.price))}
+
+            {/* Error Display */}
+            {tradeError && (
+              <Alert variant="danger" className="mb-4">
+                {tradeError}
               </Alert>
             )}
-          </Form>
+
+            {/* Action Buttons */}
+            <div className="d-flex gap-2">
+              <Button
+                variant="outline-secondary"
+                className="flex-fill"
+                onClick={() => setShowTradeModal(false)}
+                style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  fontWeight: '600'
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant={tradeType === 'BUY' ? 'success' : 'danger'}
+                className="flex-fill"
+                onClick={handleTrade}
+                disabled={
+                  tradeLoading ||
+                  !tradeForm.portfolio_id ||
+                  (tradeForm.inputType === 'amount' && !tradeForm.amount) ||
+                  (tradeForm.inputType === 'shares' && !tradeForm.shares)
+                }
+                style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  fontWeight: '600'
+                }}
+              >
+                {tradeLoading ? 'Processing...' : tradeType === 'BUY' ? 'Buy' : 'Sell'}
+              </Button>
+            </div>
+          </div>
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowSellModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={handleSell} disabled={tradeLoading}>
-            {tradeLoading ? 'Processing...' : 'Sell'}
-          </Button>
-        </Modal.Footer>
       </Modal>
     </div>
   );
