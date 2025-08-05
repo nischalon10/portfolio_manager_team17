@@ -642,7 +642,8 @@ def get_watchlist():
     cursor.execute('''
         SELECT s.*, 
                COALESCE(SUM(h.quantity), 0) as total_shares_held,
-               COALESCE(SUM(h.quantity * s.current_price), 0) as total_value_held
+               COALESCE(SUM(h.quantity * s.current_price), 0) as total_value_held,
+               COALESCE(SUM(h.quantity * h.avg_buy_price), 0) as total_cost_basis # Total cost basis for P&L calculation
         FROM stocks s
         LEFT JOIN holdings h ON s.id = h.stock_id
         WHERE s.watchlist = TRUE
@@ -659,7 +660,8 @@ def get_watchlist():
         'current_price': float(row[3]),
         'watchlist': bool(row[4]),
         'total_shares_held': row[5],
-        'total_value_held': float(row[6])
+        'total_value_held': float(row[6]),
+        'total_cost_basis': float(row[7])
     } for row in stocks])
 
 

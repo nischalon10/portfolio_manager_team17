@@ -16,6 +16,8 @@ export interface Stock {
   watchlist: boolean;
   total_shares_held: number;
   total_value_held: number;
+  total_cost_basis?: number; // Total cost basis for P&L calculation
+  profit_loss_percentage?: number; //P&L percentage for watchlist display
 }
 
 export interface Holding {
