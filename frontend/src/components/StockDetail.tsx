@@ -125,7 +125,6 @@ const StockDetailComponent: React.FC = () => {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showTradeModal, setShowTradeModal] = useState(false);
   const [tradeLoading, setTradeLoading] = useState(false);
   const [tradeError, setTradeError] = useState<string | null>(null);
   const [tradeSuccess, setTradeSuccess] = useState<string | null>(null);
@@ -241,7 +240,6 @@ const StockDetailComponent: React.FC = () => {
       }
 
       setTradeSuccess(response.message);
-      setShowTradeModal(false);
 
       // Refresh stock detail and account balance
       const [updatedStock, balanceData] = await Promise.all([
@@ -370,44 +368,295 @@ const StockDetailComponent: React.FC = () => {
         </Col>
       </Row>
 
-      {/* Trading Buttons */}
-      <Row className="mb-4">
-        <Col>
-          <Button variant="success" className="me-2" onClick={() => {
-            setTradeType('BUY');
-            setShowTradeModal(true);
-          }}>
-            Buy Stock
-          </Button>
-          <Button variant="danger" className="me-2" onClick={() => {
-            setTradeType('SELL');
-            setShowTradeModal(true);
-          }} disabled={totalHoldings === 0}>
-            Sell Stock
-          </Button>
-          <Button
-            variant={stockDetail.stock.watchlist ? "outline-danger" : "outline-success"}
-            onClick={handleWatchlistToggle}
-            disabled={watchlistLoading}
-            className="me-2"
-          >
-            {watchlistLoading ? (
-              'Updating...'
-            ) : stockDetail.stock.watchlist ? (
-              '★ Remove from Watchlist'
-            ) : (
-              '☆ Add to Watchlist'
-            )}
-          </Button>
-          <Badge bg={stockDetail.stock.watchlist ? "success" : "secondary"}>
-            {stockDetail.stock.watchlist ? "In Watchlist" : "Not in Watchlist"}
-          </Badge>
-        </Col>
-      </Row>
-
       <Row>
-        {/* Holdings */}
-        <Col lg={8}>
+        {/* Left Side - Embedded Trade Panel */}
+        <Col lg={5}>
+          <Card className="mb-4">
+            <Card.Header>
+              <h5>Trade {stockDetail.stock.symbol}</h5>
+            </Card.Header>
+            <Card.Body>
+              <div style={{ padding: '12px' }}>
+                {/* Tab-style Buy/Sell Toggle */}
+                <div className="d-flex mb-4">
+                  <Button
+                    variant={tradeType === 'BUY' ? 'primary' : 'outline-secondary'}
+                    className="flex-fill me-2"
+                    style={{
+                      borderRadius: '8px',
+                      padding: '12px',
+                      fontWeight: '600',
+                      border: tradeType === 'BUY' ? '2px solid #007bff' : '2px solid #e9ecef'
+                    }}
+                    onClick={() => setTradeType('BUY')}
+                  >
+                    Buy
+                  </Button>
+                  <Button
+                    variant={tradeType === 'SELL' ? 'primary' : 'outline-secondary'}
+                    className="flex-fill ms-2"
+                    style={{
+                      borderRadius: '8px',
+                      padding: '12px',
+                      fontWeight: '600',
+                      border: tradeType === 'SELL' ? '2px solid #007bff' : '2px solid #e9ecef'
+                    }}
+                    onClick={() => setTradeType('SELL')}
+                  >
+                    Sell
+                  </Button>
+                </div>
+
+                {/* Available Balance */}
+                <div className="mb-3">
+                  <span className="text-muted" style={{ fontSize: '14px' }}>
+                    {tradeType === 'BUY' ? 'From' : 'Available'}
+                  </span>
+                  <span className="float-end text-muted" style={{ fontSize: '14px' }}>
+                    Available: {formatCurrency(accountBalance)}
+                  </span>
+                </div>
+
+                {/* Input Type Toggle */}
+                <div className="mb-3">
+                  <div className="d-flex border rounded p-1" style={{ backgroundColor: '#f8f9fa' }}>
+                    <Button
+                      variant={tradeForm.inputType === 'amount' ? 'primary' : 'light'}
+                      size="sm"
+                      className="flex-fill me-1"
+                      style={{
+                        borderRadius: '6px',
+                        fontWeight: '500',
+                        fontSize: '14px'
+                      }}
+                      onClick={() => setTradeForm({ ...tradeForm, inputType: 'amount' })}
+                    >
+                      Dollar Amount
+                    </Button>
+                    <Button
+                      variant={tradeForm.inputType === 'shares' ? 'primary' : 'light'}
+                      size="sm"
+                      className="flex-fill ms-1"
+                      style={{
+                        borderRadius: '6px',
+                        fontWeight: '500',
+                        fontSize: '14px'
+                      }}
+                      onClick={() => setTradeForm({ ...tradeForm, inputType: 'shares' })}
+                    >
+                      Number of Shares
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Large Input Field - Dollar Amount or Shares */}
+                <div className="mb-4">
+                  {tradeForm.inputType === 'amount' ? (
+                    <div className="input-group" style={{ fontSize: '28px', fontWeight: '600' }}>
+                      <span className="input-group-text" style={{
+                        fontSize: '28px',
+                        fontWeight: '600',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        padding: '0'
+                      }}>
+                        $
+                      </span>
+                      <Form.Control
+                        type="number"
+                        step="0.01"
+                        value={tradeForm.amount}
+                        onChange={(e) => setTradeForm({ ...tradeForm, amount: e.target.value })}
+                        placeholder="0.00"
+                        style={{
+                          fontSize: '28px',
+                          fontWeight: '600',
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          outline: 'none',
+                          boxShadow: 'none',
+                          padding: '0',
+                          borderBottom: '2px solid #dee2e6'
+                        }}
+                        min="0"
+                      />
+                    </div>
+                  ) : (
+                    <div className="d-flex align-items-center" style={{ fontSize: '28px', fontWeight: '600' }}>
+                      <Form.Control
+                        type="number"
+                        value={tradeForm.shares}
+                        onChange={(e) => setTradeForm({ ...tradeForm, shares: e.target.value })}
+                        placeholder="0"
+                        style={{
+                          fontSize: '28px',
+                          fontWeight: '600',
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          outline: 'none',
+                          boxShadow: 'none',
+                          padding: '0',
+                          borderBottom: '2px solid #dee2e6',
+                          textAlign: 'right'
+                        }}
+                        min="1"
+                      />
+                      <span className="ms-3 text-muted" style={{ fontSize: '16px' }}>
+                        shares
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Stock Info */}
+                <div className="mb-3">
+                  <div className="d-flex align-items-center p-2 border rounded" style={{ backgroundColor: '#f8f9fa' }}>
+                    <StockLogo symbol={stockDetail.stock.symbol} name={stockDetail.stock.name} size={24} />
+                    <div className="flex-grow-1">
+                      <div style={{ fontWeight: '600', fontSize: '14px' }}>
+                        {stockDetail.stock.symbol}
+                      </div>
+                      <div className="text-muted" style={{ fontSize: '12px' }}>
+                        {stockDetail.stock.name}
+                      </div>
+                    </div>
+                    <div className="text-end">
+                      <div style={{ fontWeight: '600', fontSize: '14px' }}>
+                        {formatCurrency(stockDetail.stock.current_price)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Portfolio Selection */}
+                <div className="mb-3">
+                  <Form.Label style={{ fontWeight: '600', marginBottom: '8px', fontSize: '14px' }}>
+                    {tradeType === 'BUY' ? 'Add to Portfolio' : 'Sell from Portfolio'}
+                  </Form.Label>
+                  <Form.Select
+                    value={tradeForm.portfolio_id}
+                    onChange={(e) => setTradeForm({ ...tradeForm, portfolio_id: e.target.value })}
+                    style={{
+                      padding: '8px',
+                      borderRadius: '6px',
+                      border: '1px solid #e9ecef'
+                    }}
+                  >
+                    <option value="">Select Portfolio</option>
+                    {tradeType === 'BUY' ? (
+                      portfolios.map((portfolio) => (
+                        <option key={portfolio.id} value={portfolio.id}>
+                          {portfolio.name}
+                        </option>
+                      ))
+                    ) : (
+                      stockDetail.holdings.map((holding) => (
+                        <option key={holding.portfolio_id} value={holding.portfolio_id}>
+                          {holding.portfolio_name} ({holding.quantity} shares available)
+                        </option>
+                      ))
+                    )}
+                  </Form.Select>
+                </div>
+
+                {/* Trade Summary */}
+                {((tradeForm.inputType === 'amount' && tradeForm.amount) ||
+                  (tradeForm.inputType === 'shares' && tradeForm.shares)) && (
+                    <Alert variant="light" className="mb-3" style={{ backgroundColor: '#f8f9fa', border: '1px solid #e9ecef' }}>
+                      {tradeForm.inputType === 'amount' ? (
+                        <>
+                          <div className="d-flex justify-content-between">
+                            <span style={{ fontSize: '12px' }}>Estimated shares:</span>
+                            <span style={{ fontWeight: '600', fontSize: '12px' }}>
+                              {Math.floor(parseFloat(tradeForm.amount) / stockDetail.stock.current_price)} shares
+                            </span>
+                          </div>
+                          <div className="d-flex justify-content-between">
+                            <span style={{ fontSize: '12px' }}>Total cost:</span>
+                            <span style={{ fontWeight: '600', fontSize: '12px' }}>
+                              {formatCurrency(Math.floor(parseFloat(tradeForm.amount) / stockDetail.stock.current_price) * stockDetail.stock.current_price)}
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="d-flex justify-content-between">
+                            <span style={{ fontSize: '12px' }}>Shares to {tradeType.toLowerCase()}:</span>
+                            <span style={{ fontWeight: '600', fontSize: '12px' }}>
+                              {tradeForm.shares} shares
+                            </span>
+                          </div>
+                          <div className="d-flex justify-content-between">
+                            <span style={{ fontSize: '12px' }}>Total {tradeType === 'BUY' ? 'cost' : 'proceeds'}:</span>
+                            <span style={{ fontWeight: '600', fontSize: '12px' }}>
+                              {formatCurrency(parseInt(tradeForm.shares) * stockDetail.stock.current_price)}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </Alert>
+                  )}
+
+                {/* Success Display */}
+                {tradeSuccess && (
+                  <Alert variant="success" className="mb-3">
+                    {tradeSuccess}
+                  </Alert>
+                )}
+
+                {/* Error Display */}
+                {tradeError && (
+                  <Alert variant="danger" className="mb-3">
+                    {tradeError}
+                  </Alert>
+                )}
+
+                {/* Action Button */}
+                <Button
+                  variant={tradeType === 'BUY' ? 'success' : 'danger'}
+                  className="w-100"
+                  onClick={handleTrade}
+                  disabled={
+                    tradeLoading ||
+                    !tradeForm.portfolio_id ||
+                    (tradeForm.inputType === 'amount' && !tradeForm.amount) ||
+                    (tradeForm.inputType === 'shares' && !tradeForm.shares)
+                  }
+                  style={{
+                    padding: '12px',
+                    borderRadius: '8px',
+                    fontWeight: '600'
+                  }}
+                >
+                  {tradeLoading ? 'Processing...' : tradeType === 'BUY' ? 'Buy Stock' : 'Sell Stock'}
+                </Button>
+
+                {/* Watchlist Button */}
+                <div className="mt-3">
+                  <Button
+                    variant={stockDetail.stock.watchlist ? "outline-danger" : "outline-success"}
+                    onClick={handleWatchlistToggle}
+                    disabled={watchlistLoading}
+                    className="w-100"
+                    size="sm"
+                  >
+                    {watchlistLoading ? (
+                      'Updating...'
+                    ) : stockDetail.stock.watchlist ? (
+                      '★ Remove from Watchlist'
+                    ) : (
+                      '☆ Add to Watchlist'
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </Card.Body>
+          </Card>
+        </Col>
+
+        {/* Right Side - Holdings and Transactions */}
+        <Col lg={7}>
+          {/* Holdings */}
           <Card className="mb-4">
             <Card.Header>
               <h5>Holdings by Portfolio</h5>
@@ -447,10 +696,8 @@ const StockDetailComponent: React.FC = () => {
               )}
             </Card.Body>
           </Card>
-        </Col>
 
-        {/* Recent Transactions */}
-        <Col lg={4}>
+          {/* Recent Transactions */}
           <Card>
             <Card.Header>
               <h5>Recent Transactions</h5>
@@ -486,288 +733,6 @@ const StockDetailComponent: React.FC = () => {
           </Card>
         </Col>
       </Row>
-
-      {/* Modern Trade Modal */}
-      <Modal show={showTradeModal} onHide={() => setShowTradeModal(false)} size="lg" centered>
-        <Modal.Body className="p-0">
-          <div style={{ padding: '24px' }}>
-            {/* Tab-style Buy/Sell Toggle */}
-            <div className="d-flex mb-4">
-              <Button
-                variant={tradeType === 'BUY' ? 'primary' : 'outline-secondary'}
-                className="flex-fill me-2"
-                style={{
-                  borderRadius: '8px',
-                  padding: '12px',
-                  fontWeight: '600',
-                  border: tradeType === 'BUY' ? '2px solid #007bff' : '2px solid #e9ecef'
-                }}
-                onClick={() => setTradeType('BUY')}
-              >
-                Buy
-              </Button>
-              <Button
-                variant={tradeType === 'SELL' ? 'primary' : 'outline-secondary'}
-                className="flex-fill ms-2"
-                style={{
-                  borderRadius: '8px',
-                  padding: '12px',
-                  fontWeight: '600',
-                  border: tradeType === 'SELL' ? '2px solid #007bff' : '2px solid #e9ecef'
-                }}
-                onClick={() => setTradeType('SELL')}
-              >
-                Sell
-              </Button>
-            </div>
-
-            {/* Available Balance */}
-            <div className="mb-3">
-              <span className="text-muted" style={{ fontSize: '14px' }}>
-                {tradeType === 'BUY' ? 'From' : 'Available'}
-              </span>
-              <span className="float-end text-muted" style={{ fontSize: '14px' }}>
-                Available: {formatCurrency(accountBalance)}
-              </span>
-            </div>
-
-            {/* Input Type Toggle */}
-            <div className="mb-3">
-              <div className="d-flex border rounded p-1" style={{ backgroundColor: '#f8f9fa' }}>
-                <Button
-                  variant={tradeForm.inputType === 'amount' ? 'primary' : 'light'}
-                  size="sm"
-                  className="flex-fill me-1"
-                  style={{
-                    borderRadius: '6px',
-                    fontWeight: '500',
-                    fontSize: '14px'
-                  }}
-                  onClick={() => setTradeForm({ ...tradeForm, inputType: 'amount' })}
-                >
-                  Dollar Amount
-                </Button>
-                <Button
-                  variant={tradeForm.inputType === 'shares' ? 'primary' : 'light'}
-                  size="sm"
-                  className="flex-fill ms-1"
-                  style={{
-                    borderRadius: '6px',
-                    fontWeight: '500',
-                    fontSize: '14px'
-                  }}
-                  onClick={() => setTradeForm({ ...tradeForm, inputType: 'shares' })}
-                >
-                  Number of Shares
-                </Button>
-              </div>
-            </div>
-
-            {/* Large Input Field - Dollar Amount or Shares */}
-            <div className="mb-4">
-              {tradeForm.inputType === 'amount' ? (
-                <div className="input-group" style={{ fontSize: '32px', fontWeight: '600' }}>
-                  <span className="input-group-text" style={{
-                    fontSize: '32px',
-                    fontWeight: '600',
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    padding: '0'
-                  }}>
-                    $
-                  </span>
-                  <Form.Control
-                    type="number"
-                    step="0.01"
-                    value={tradeForm.amount}
-                    onChange={(e) => setTradeForm({ ...tradeForm, amount: e.target.value })}
-                    placeholder="0.00"
-                    style={{
-                      fontSize: '32px',
-                      fontWeight: '600',
-                      border: 'none',
-                      backgroundColor: 'transparent',
-                      outline: 'none',
-                      boxShadow: 'none',
-                      padding: '0',
-                      borderBottom: '2px solid #dee2e6'
-                    }}
-                    min="0"
-                  />
-                </div>
-              ) : (
-                <div className="d-flex align-items-center" style={{ fontSize: '32px', fontWeight: '600' }}>
-                  <Form.Control
-                    type="number"
-                    value={tradeForm.shares}
-                    onChange={(e) => setTradeForm({ ...tradeForm, shares: e.target.value })}
-                    placeholder="0"
-                    style={{
-                      fontSize: '32px',
-                      fontWeight: '600',
-                      border: 'none',
-                      backgroundColor: 'transparent',
-                      outline: 'none',
-                      boxShadow: 'none',
-                      padding: '0',
-                      borderBottom: '2px solid #dee2e6',
-                      textAlign: 'right'
-                    }}
-                    min="1"
-                  />
-                  <span className="ms-3 text-muted" style={{ fontSize: '18px' }}>
-                    shares
-                  </span>
-                </div>
-              )}
-            </div>            {/* Stock Selector */}
-            <div className="mb-4">
-              <div className="d-flex align-items-center p-3 border rounded" style={{ backgroundColor: '#f8f9fa' }}>
-                {stockDetail && (
-                  <>
-                    <StockLogo symbol={stockDetail.stock.symbol} name={stockDetail.stock.name} size={32} />
-                    <div className="flex-grow-1">
-                      <div style={{ fontWeight: '600', fontSize: '16px' }}>
-                        {stockDetail.stock.symbol}
-                      </div>
-                      <div className="text-muted" style={{ fontSize: '14px' }}>
-                        {stockDetail.stock.name}
-                      </div>
-                    </div>
-                    <div className="text-end">
-                      <div style={{ fontWeight: '600', fontSize: '16px' }}>
-                        {formatCurrency(stockDetail.stock.current_price)}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Portfolio Selection */}
-            <div className="mb-4">
-              <Form.Label style={{ fontWeight: '600', marginBottom: '8px' }}>
-                {tradeType === 'BUY' ? 'Add to Portfolio' : 'Sell from Portfolio'}
-              </Form.Label>
-              <Form.Select
-                value={tradeForm.portfolio_id}
-                onChange={(e) => setTradeForm({ ...tradeForm, portfolio_id: e.target.value })}
-                style={{
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '2px solid #e9ecef'
-                }}
-              >
-                <option value="">Select Portfolio</option>
-                {tradeType === 'BUY' ? (
-                  portfolios.map((portfolio) => (
-                    <option key={portfolio.id} value={portfolio.id}>
-                      {portfolio.name}
-                    </option>
-                  ))
-                ) : (
-                  stockDetail?.holdings.map((holding) => (
-                    <option key={holding.portfolio_id} value={holding.portfolio_id}>
-                      {holding.portfolio_name} ({holding.quantity} shares available)
-                    </option>
-                  ))
-                )}
-              </Form.Select>
-            </div>
-
-            {/* Trade Summary */}
-            {((tradeForm.inputType === 'amount' && tradeForm.amount) ||
-              (tradeForm.inputType === 'shares' && tradeForm.shares)) && stockDetail && (
-                <Alert variant="light" className="mb-4" style={{ backgroundColor: '#f8f9fa', border: '1px solid #e9ecef' }}>
-                  {tradeForm.inputType === 'amount' ? (
-                    <>
-                      <div className="d-flex justify-content-between">
-                        <span>Estimated shares:</span>
-                        <span style={{ fontWeight: '600' }}>
-                          {Math.floor(parseFloat(tradeForm.amount) / stockDetail.stock.current_price)} shares
-                        </span>
-                      </div>
-                      <div className="d-flex justify-content-between">
-                        <span>Price per share:</span>
-                        <span style={{ fontWeight: '600' }}>
-                          {formatCurrency(stockDetail.stock.current_price)}
-                        </span>
-                      </div>
-                      <div className="d-flex justify-content-between">
-                        <span>Total cost:</span>
-                        <span style={{ fontWeight: '600' }}>
-                          {formatCurrency(Math.floor(parseFloat(tradeForm.amount) / stockDetail.stock.current_price) * stockDetail.stock.current_price)}
-                        </span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="d-flex justify-content-between">
-                        <span>Shares to {tradeType.toLowerCase()}:</span>
-                        <span style={{ fontWeight: '600' }}>
-                          {tradeForm.shares} shares
-                        </span>
-                      </div>
-                      <div className="d-flex justify-content-between">
-                        <span>Price per share:</span>
-                        <span style={{ fontWeight: '600' }}>
-                          {formatCurrency(stockDetail.stock.current_price)}
-                        </span>
-                      </div>
-                      <div className="d-flex justify-content-between">
-                        <span>Total {tradeType === 'BUY' ? 'cost' : 'proceeds'}:</span>
-                        <span style={{ fontWeight: '600' }}>
-                          {formatCurrency(parseInt(tradeForm.shares) * stockDetail.stock.current_price)}
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </Alert>
-              )}
-
-            {/* Error Display */}
-            {tradeError && (
-              <Alert variant="danger" className="mb-4">
-                {tradeError}
-              </Alert>
-            )}
-
-            {/* Action Buttons */}
-            <div className="d-flex gap-2">
-              <Button
-                variant="outline-secondary"
-                className="flex-fill"
-                onClick={() => setShowTradeModal(false)}
-                style={{
-                  padding: '12px',
-                  borderRadius: '8px',
-                  fontWeight: '600'
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant={tradeType === 'BUY' ? 'success' : 'danger'}
-                className="flex-fill"
-                onClick={handleTrade}
-                disabled={
-                  tradeLoading ||
-                  !tradeForm.portfolio_id ||
-                  (tradeForm.inputType === 'amount' && !tradeForm.amount) ||
-                  (tradeForm.inputType === 'shares' && !tradeForm.shares)
-                }
-                style={{
-                  padding: '12px',
-                  borderRadius: '8px',
-                  fontWeight: '600'
-                }}
-              >
-                {tradeLoading ? 'Processing...' : tradeType === 'BUY' ? 'Buy' : 'Sell'}
-              </Button>
-            </div>
-          </div>
-        </Modal.Body>
-      </Modal>
     </div>
   );
 };
