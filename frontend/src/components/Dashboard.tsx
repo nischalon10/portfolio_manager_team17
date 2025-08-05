@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Row, Col, Card, Table, Alert, Spinner } from 'react-bootstrap';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Link } from 'react-router-dom';
 import portfolioAPI from '../api';
 import { DashboardData, NetWorthHistoryItem, Stock } from '../types';
@@ -22,7 +22,27 @@ const Dashboard: React.FC = () => {
         ]);
         setDashboardData(dashboard);
         setNetWorthHistory(history);
-        setWatchlistStocks(watchlist); 
+        
+        // Calculate P&L percentage for each stock if they have holdings
+        const watchlistWithPnL = watchlist.map(stock => {
+          let profit_loss_percentage = undefined;
+          
+          if (stock.total_shares_held > 0 && stock.total_cost_basis && stock.total_cost_basis > 0) {
+            // Calculate average cost basis from original purchase prices
+            const avgCostBasis = stock.total_cost_basis / stock.total_shares_held;
+            const currentValue = stock.current_price;
+            
+            // Calculate P&L percentage: ((current_price - avg_cost) / avg_cost) * 100
+            profit_loss_percentage = ((currentValue - avgCostBasis) / avgCostBasis) * 100;
+          }
+          
+          return {
+            ...stock,
+            profit_loss_percentage
+          };
+        });
+        
+        setWatchlistStocks(watchlistWithPnL);
 
       } catch (err) {
         setError('Failed to fetch dashboard data');
@@ -104,39 +124,51 @@ const Dashboard: React.FC = () => {
       <Row>
 {/* Watchlist Table  */}
         <Col lg={3}>
-          <Card className="mb-4">
-            <Card.Header style={{ minHeight: '56px', display: 'flex', alignItems: 'center' }}>
-              <h5 style={{ fontSize: '1.25rem', margin: 0 }}>Stocks Watchlist</h5>
+          <Card>
+            <Card.Header>
+              <h5 className="mb-0">Watchlist</h5>
             </Card.Header>
-            <Card.Body>
+            <Card.Body style={{ padding: '0' }}>
               {watchlistStocks.length === 0 ? (
                 <div className="text-center text-muted py-3">
                   <p>No stocks in watchlist</p>
                   <small>Visit stock pages to add stocks to your watchlist</small>
                 </div>
               ) : (
-                <Table striped bordered hover size="sm">
+                <Table striped hover size="sm" className="mb-0">
                   <thead>
                     <tr>
-                      <th>Symbol</th>
-                      <th>Name</th>
-                      <th>Price</th>
+                      <th>Stock</th>
+                      <th className="text-end">Price</th>
                     </tr>
                   </thead>
                   <tbody>
                     {watchlistStocks.map((stock) => (
                       <tr key={stock.symbol}>
                         <td>
+                          <div className="text-muted" style={{ fontSize: '0.85rem' }}>{stock.name}</div>
                           <Link to={`/stock/${stock.symbol}`} className="text-decoration-none">
                             <strong>{stock.symbol}</strong>
                           </Link>
                         </td>
-                        <td>
-                          <Link to={`/stock/${stock.symbol}`} className="text-decoration-none text-dark">
-                            {stock.name}
-                          </Link>
+                        <td className="text-end">
+                          {stock.profit_loss_percentage !== undefined ? (
+                            <div className="small" style={{ 
+                              color: stock.profit_loss_percentage >= 0 ? 'green' : 'red',
+                              fontWeight: 'bold',
+                              fontSize: '1rem'
+                            }}>
+                              {stock.profit_loss_percentage >= 0 ? '+' : ''}{stock.profit_loss_percentage.toFixed(2)}%
+                            </div>
+                          ) : (
+                            <div className="small text-muted" style={{ fontSize: '0.8rem' }}>
+                              No holdings
+                            </div>
+                          )}
+                          <div className="fw-bold">
+                            {formatCurrency(stock.current_price)}
+                          </div>
                         </td>
-                        <td>{formatCurrency(stock.current_price)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -147,86 +179,153 @@ const Dashboard: React.FC = () => {
         </Col>
 
         {/* Net Worth Chart */}
-        <Col lg={5}>
-          <Card className="mb-4" style={{ maxWidth: '600px', margin: '0 auto' }}>
-            <Card.Header style={{ minHeight: '56px', display: 'flex', alignItems: 'center' }}>
-              <h5 style={{ fontSize: '1.25rem', margin: 0 }}>Net Worth History (Last 30 Days)</h5>
-            </Card.Header>
-            <Card.Body style={{ padding: '12px' }}>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={netWorthHistory}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                  <Legend />
-                  <Line type="monotone" dataKey="total_net_worth" stroke="#8884d8" name="Net Worth" />
-                  <Line type="monotone" dataKey="portfolio_value" stroke="#82ca9d" name="Portfolio Value" />
-                  <Line type="monotone" dataKey="account_balance" stroke="#ffc658" name="Account Balance" />
-                </LineChart>
-              </ResponsiveContainer>
-            </Card.Body>
-          </Card>
-        </Col>
+       <Col lg={5}>
+  <Card className="mb-4" style={{ maxWidth: '600px', margin: '0 auto' }}>
+    <Card.Header style={{ minHeight: '56px', display: 'flex', alignItems: 'center' }}>
+      <h5 style={{ fontSize: '1.25rem', margin: 0 }}>Net Worth History (Last 30 Days)</h5>
+    </Card.Header>
+    <Card.Body style={{ padding: '12px' }}>
+      <ResponsiveContainer width="100%" height={300}>
+        <AreaChart data={netWorthHistory}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis 
+            dataKey="timestamp"
+            tickFormatter={(value, index) => {
+              const dataLength = netWorthHistory.length;
+              
+              if (index === 0) return "1 Day";
+              else if (index < dataLength / 6) return "2 Days";
+              else if (index < (2 * dataLength) / 6) return "5 Days";
+              else if (index < (3 * dataLength) / 6) return "10 Days";
+              else if (index < (4 * dataLength) / 6) return "15 Days";
+              else return "1M";
+            }}
+            interval="preserveStartEnd"
+            tick={{ fontSize: 10 }}
+          />
+          <YAxis />
+          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+          <Legend />
+
+          {/* Net Worth - Area with shaded fill */}
+          <Area
+            type="natural"
+            dataKey="total_net_worth"
+            stroke="#8884d8"
+            fill="#8884d8"
+            fillOpacity={0.3}
+            strokeWidth={2}
+            dot={false}
+            name="Net Worth"
+          />
+
+          {/* Portfolio Value - Area with shaded fill */}
+          <Area
+            type="natural"
+            dataKey="portfolio_value"
+            stroke="#82ca9d"
+            fill="#82ca9d"
+            fillOpacity={0.3}
+            strokeWidth={2}
+            dot={false}
+            name="Portfolio Value"
+          />
+
+          {/* Account Balance - Area with shaded fill */}
+          <Area
+            type="natural"
+            dataKey="account_balance"
+            stroke="#ffc658"
+            fill="#ffc658"
+            fillOpacity={0.3}
+            strokeWidth={2}
+            dot={false}
+            name="Account Balance"
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </Card.Body>
+  </Card>
+</Col>
 
         {/* Donut Chart for Portfolios */}
-       <Col lg={4}>
+     <Col lg={4}>
   <Card className="mb-4" style={{ minHeight: '200px', maxWidth: '400px', margin: '0 auto' }}>
     <Card.Header style={{ minHeight: '56px', display: 'flex', alignItems: 'center' }}>
       <h5 style={{ fontSize: '1.25rem', marginBottom: '0.2rem' }}>Market Value</h5>
     </Card.Header>
-    <Card.Body style={{ padding: '0 10px',paddingTop: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <ResponsiveContainer width="100%" height={243}>
-        <PieChart>
-          {(() => {
-            const portfolios = dashboardData.portfolios.slice(0, 4);
-            const totalValue = portfolios.reduce((sum, p) => sum + p.total_value, 0);
-            const data = portfolios.map(p => ({
-              name: p.name,
-              percent: totalValue ? (p.total_value / totalValue) * 100 : 0,
-            }));
-            return (
-              <Pie
-                data={data}
-                dataKey="percent"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={80}
-                outerRadius={120}
-                label={false}
-              >
-                {data.map((entry, idx) => (
-                  <Cell
-                    key={`cell-${idx}`}
-                    fill={["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#A28DFF", "#FF6F91"][idx % 6]}
-                  />
-                ))}
-              </Pie>
-            );
-          })()}
-          <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
-        </PieChart>
-      </ResponsiveContainer>
+    <Card.Body style={{ padding: '0 10px', paddingTop: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      {(() => {
+        // ✅ Get only portfolios with non-zero value
+        const validPortfolios = dashboardData.portfolios.filter(p => p.total_value > 0);
+        const totalValue = validPortfolios.reduce((sum, p) => sum + p.total_value, 0);
 
-      {/* Manual Legend Below Chart */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', marginTop: '10px' }}>
-        {dashboardData.portfolios.slice(0, 4).map((p, idx) => (
-          <div key={p.name} style={{ display: 'flex', alignItems: 'center', margin: '4px 8px' }}>
-            <div style={{
-              width: 12,
-              height: 12,
-              backgroundColor: ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"][idx % 4],
-              marginRight: 6,
-              borderRadius: 2
-            }} />
-            <span style={{ fontSize: '0.8rem' }}>{p.name}</span>
-          </div>
-        ))}
-      </div>
+        // ✅ Map to chart-friendly format
+        const data = validPortfolios.map(p => ({
+          name: p.name,
+          percent: totalValue ? (p.total_value / totalValue) * 100 : 0,
+        }));
+
+        const colors = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#A28DFF", "#FF6F91"];
+
+        return (
+          <>
+            <ResponsiveContainer width="100%" height={243}>
+              <PieChart>
+                <Pie
+                  data={data}
+                  dataKey="percent"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={80}
+                  outerRadius={120}
+                  label={false}
+                >
+                  {data.map((_, idx) => (
+                    <Cell key={`cell-${idx}`} fill={colors[idx % colors.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value: number) => `${value.toFixed(1)}%`}
+                  contentStyle={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    boxShadow: 'none',
+                    color: '#333',
+                    fontStyle: 'italic'
+                  }}
+                  labelStyle={{
+                    color: '#333',
+                    fontWeight: 'bold',
+                    fontStyle: 'italic'
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+
+            {/* ✅ Only legend for what's shown on chart */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', marginTop: '10px' }}>
+              {data.map((entry, idx) => (
+                <div key={entry.name} style={{ display: 'flex', alignItems: 'center', margin: '4px 8px' }}>
+                  <div style={{
+                    width: 12,
+                    height: 12,
+                    backgroundColor: colors[idx % colors.length],
+                    marginRight: 6,
+                    borderRadius: 2
+                  }} />
+                  <span style={{ fontSize: '0.8rem' }}>{entry.name}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        );
+      })()}
     </Card.Body>
   </Card>
 </Col>
+
 
 
       </Row>
