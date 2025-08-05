@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Row, Col, Card, Table, Alert, Spinner } from 'react-bootstrap';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Link } from 'react-router-dom';
 import portfolioAPI from '../api';
 import { DashboardData, NetWorthHistoryItem, Stock } from '../types';
@@ -179,27 +179,75 @@ const Dashboard: React.FC = () => {
         </Col>
 
         {/* Net Worth Chart */}
-        <Col lg={5}>
-          <Card className="mb-4" style={{ maxWidth: '600px', margin: '0 auto' }}>
-            <Card.Header style={{ minHeight: '56px', display: 'flex', alignItems: 'center' }}>
-              <h5 style={{ fontSize: '1.25rem', margin: 0 }}>Net Worth History (Last 30 Days)</h5>
-            </Card.Header>
-            <Card.Body style={{ padding: '12px' }}>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={netWorthHistory}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                  <Legend />
-                  <Line type="monotone" dataKey="total_net_worth" stroke="#8884d8" name="Net Worth" />
-                  <Line type="monotone" dataKey="portfolio_value" stroke="#82ca9d" name="Portfolio Value" />
-                  <Line type="monotone" dataKey="account_balance" stroke="#ffc658" name="Account Balance" />
-                </LineChart>
-              </ResponsiveContainer>
-            </Card.Body>
-          </Card>
-        </Col>
+       <Col lg={5}>
+  <Card className="mb-4" style={{ maxWidth: '600px', margin: '0 auto' }}>
+    <Card.Header style={{ minHeight: '56px', display: 'flex', alignItems: 'center' }}>
+      <h5 style={{ fontSize: '1.25rem', margin: 0 }}>Net Worth History (Last 30 Days)</h5>
+    </Card.Header>
+    <Card.Body style={{ padding: '12px' }}>
+      <ResponsiveContainer width="100%" height={300}>
+        <AreaChart data={netWorthHistory}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis 
+            dataKey="timestamp"
+            tickFormatter={(value, index) => {
+              const dataLength = netWorthHistory.length;
+              
+              if (index === 0) return "1 Day";
+              else if (index < dataLength / 6) return "2 Days";
+              else if (index < (2 * dataLength) / 6) return "5 Days";
+              else if (index < (3 * dataLength) / 6) return "10 Days";
+              else if (index < (4 * dataLength) / 6) return "15 Days";
+              else if (index < (5 * dataLength) / 6) return "1M";
+              else return "1M";
+            }}
+            interval="preserveStartEnd"
+            tick={{ fontSize: 10 }}
+          />
+          <YAxis />
+          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+          <Legend />
+
+          {/* Net Worth - Area with shaded fill */}
+          <Area
+            type="natural"
+            dataKey="total_net_worth"
+            stroke="#8884d8"
+            fill="#8884d8"
+            fillOpacity={0.3}
+            strokeWidth={2}
+            dot={false}
+            name="Net Worth"
+          />
+
+          {/* Portfolio Value - Area with shaded fill */}
+          <Area
+            type="natural"
+            dataKey="portfolio_value"
+            stroke="#82ca9d"
+            fill="#82ca9d"
+            fillOpacity={0.3}
+            strokeWidth={2}
+            dot={false}
+            name="Portfolio Value"
+          />
+
+          {/* Account Balance - Area with shaded fill */}
+          <Area
+            type="natural"
+            dataKey="account_balance"
+            stroke="#ffc658"
+            fill="#ffc658"
+            fillOpacity={0.3}
+            strokeWidth={2}
+            dot={false}
+            name="Account Balance"
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </Card.Body>
+  </Card>
+</Col>
 
         {/* Donut Chart for Portfolios */}
        <Col lg={4}>
