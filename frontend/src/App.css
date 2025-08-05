@@ -19,6 +19,15 @@
   color: white;
 }
 
+/* Search dropdown styles */
+.search-dropdown-item {
+  transition: background-color 0.2s ease;
+}
+
+.search-dropdown-item:hover {
+  background-color: #f8f9fa !important;
+}
+
 .App-link {
   color: #61dafb;
 }

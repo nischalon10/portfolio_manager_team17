@@ -4,6 +4,121 @@ import { Row, Col, Card, Table, Alert, Spinner, Button, Modal, Form, Badge } fro
 import portfolioAPI from '../api';
 import { StockDetail, Portfolio, TradeRequest } from '../types';
 
+// Component for stock logo with fallback (same as Stocks.tsx)
+const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
+  symbol,
+  name,
+  size = 32
+}) => {
+  const [imgSrc, setImgSrc] = useState<string>('');
+  const [hasError, setHasError] = useState(false);
+  const [currentSourceIndex, setCurrentSourceIndex] = useState(0);
+
+  // Multiple logo sources with fallbacks
+  const logoSources = [
+    `https://financialmodelingprep.com/image-stock/${symbol}.png`,
+  ];
+
+  function getCompanyDomain(symbol: string): string {
+    // Map common symbols to their domain names
+    const domainMap: { [key: string]: string } = {
+      'AAPL': 'apple',
+      'GOOGL': 'google',
+      'MSFT': 'microsoft',
+      'AMZN': 'amazon',
+      'TSLA': 'tesla',
+      'META': 'meta',
+      'NVDA': 'nvidia',
+      'NFLX': 'netflix',
+      'DIS': 'disney',
+      'INTC': 'intel',
+      'UNH': 'unitedhealthgroup',
+      'V': 'visa',
+      'AMD': 'amd'
+    };
+    return domainMap[symbol] || symbol.toLowerCase();
+  }
+
+  useEffect(() => {
+    // Check if we have a custom logo URL for this symbol
+    const customLogos: { [key: string]: string } = {
+      'INTC': 'https://logos-world.net/wp-content/uploads/2021/09/Intel-Logo.png',
+      'DIS': 'https://www.citypng.com/public/uploads/preview/hd-the-walt-disney-blue-logo-transparent-png-701751694774911obalqyemvs.png',
+      'AMZN': 'https://www.allaboutlean.com/wp-content/uploads/2019/10/Amazon-Logo.png',
+      'UNH': 'https://i.pinimg.com/736x/be/1b/b5/be1bb5e50d33f4e6c7ef3bb8c178b8db.jpg',
+      'V': 'https://www.edigitalagency.com.au/wp-content/uploads/new-visa-logo-white-font-blue-background-latest.png'
+    };
+
+    if (customLogos[symbol]) {
+      // Use custom logo first, then fallback to regular sources
+      const customLogoSources = [
+        customLogos[symbol],
+        ...logoSources
+      ];
+      setImgSrc(customLogoSources[0]);
+    } else {
+      setImgSrc(logoSources[0]);
+    }
+
+    setHasError(false);
+    setCurrentSourceIndex(0);
+  }, [symbol]);
+
+  const handleImageError = () => {
+    const nextIndex = currentSourceIndex + 1;
+    if (nextIndex < logoSources.length) {
+      setCurrentSourceIndex(nextIndex);
+      setImgSrc(logoSources[nextIndex]);
+    } else {
+      setHasError(true);
+    }
+  };
+
+  const getInitials = (companyName: string) => {
+    return companyName
+      .split(' ')
+      .slice(0, 2)
+      .map(word => word.charAt(0).toUpperCase())
+      .join('');
+  };
+
+  if (hasError) {
+    // Fallback to initials in a circle with better contrast
+    return (
+      <div
+        className="d-flex align-items-center justify-content-center rounded-circle text-white fw-bold me-3"
+        style={{
+          width: size,
+          height: size,
+          fontSize: size * 0.4,
+          minWidth: size,
+          minHeight: size,
+          background: 'linear-gradient(45deg, #007bff, #0056b3)',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        }}
+      >
+        {getInitials(name)}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={imgSrc}
+      alt={`${symbol} logo`}
+      width={size}
+      height={size}
+      onError={handleImageError}
+      className="rounded me-3"
+      style={{
+        objectFit: 'contain',
+        maxWidth: '100%',
+        maxHeight: '100%'
+      }}
+    />
+  );
+};
+
 const StockDetailComponent: React.FC = () => {
   const { symbol } = useParams<{ symbol: string }>();
   const [stockDetail, setStockDetail] = useState<StockDetail | null>(null);
@@ -16,13 +131,13 @@ const StockDetailComponent: React.FC = () => {
   const [tradeError, setTradeError] = useState<string | null>(null);
   const [tradeSuccess, setTradeSuccess] = useState<string | null>(null);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
-  
+
   const [buyForm, setBuyForm] = useState({
     portfolio_id: '',
     quantity: '',
     price: ''
   });
-  
+
   const [sellForm, setSellForm] = useState({
     portfolio_id: '',
     quantity: '',
@@ -32,7 +147,7 @@ const StockDetailComponent: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (!symbol) return;
-      
+
       try {
         setLoading(true);
         const [stockData, portfolioData] = await Promise.all([
@@ -41,7 +156,7 @@ const StockDetailComponent: React.FC = () => {
         ]);
         setStockDetail(stockData);
         setPortfolios(portfolioData);
-        
+
         // Set current price in forms
         setBuyForm(prev => ({ ...prev, price: stockData.stock.current_price.toString() }));
         setSellForm(prev => ({ ...prev, price: stockData.stock.current_price.toString() }));
@@ -65,21 +180,21 @@ const StockDetailComponent: React.FC = () => {
     try {
       setTradeLoading(true);
       setTradeError(null);
-      
+
       const tradeData: TradeRequest = {
         portfolio_id: parseInt(buyForm.portfolio_id),
         quantity: parseInt(buyForm.quantity),
         price: parseFloat(buyForm.price)
       };
-      
+
       const response = await portfolioAPI.buyStock(symbol, tradeData);
       setTradeSuccess(response.message);
       setShowBuyModal(false);
-      
+
       // Refresh stock detail
       const updatedStock = await portfolioAPI.getStockDetail(symbol);
       setStockDetail(updatedStock);
-      
+
       // Reset form
       setBuyForm({
         portfolio_id: '',
@@ -102,21 +217,21 @@ const StockDetailComponent: React.FC = () => {
     try {
       setTradeLoading(true);
       setTradeError(null);
-      
+
       const tradeData: TradeRequest = {
         portfolio_id: parseInt(sellForm.portfolio_id),
         quantity: parseInt(sellForm.quantity),
         price: parseFloat(sellForm.price)
       };
-      
+
       const response = await portfolioAPI.sellStock(symbol, tradeData);
       setTradeSuccess(response.message);
       setShowSellModal(false);
-      
+
       // Refresh stock detail
       const updatedStock = await portfolioAPI.getStockDetail(symbol);
       setStockDetail(updatedStock);
-      
+
       // Reset form
       setSellForm({
         portfolio_id: '',
@@ -183,10 +298,15 @@ const StockDetailComponent: React.FC = () => {
     <div>
       {tradeSuccess && <Alert variant="success" dismissible onClose={() => setTradeSuccess(null)}>{tradeSuccess}</Alert>}
       {tradeError && <Alert variant="danger" dismissible onClose={() => setTradeError(null)}>{tradeError}</Alert>}
-      
+
       <Row className="mb-4">
         <Col>
-          <h1>{stockDetail.stock.symbol} - {stockDetail.stock.name}</h1>
+          <div className="d-flex align-items-center mb-3">
+            <StockLogo symbol={stockDetail.stock.symbol} name={stockDetail.stock.name} size={48} />
+            <div>
+              <h1 className="mb-0">{stockDetail.stock.symbol} - {stockDetail.stock.name}</h1>
+            </div>
+          </div>
           <Link to="/stocks" className="btn btn-secondary">← Back to Stocks</Link>
         </Col>
       </Row>
@@ -238,8 +358,8 @@ const StockDetailComponent: React.FC = () => {
           <Button variant="danger" className="me-2" onClick={() => setShowSellModal(true)} disabled={totalHoldings === 0}>
             Sell Stock
           </Button>
-          <Button 
-            variant={stockDetail.stock.watchlist ? "outline-danger" : "outline-success"} 
+          <Button
+            variant={stockDetail.stock.watchlist ? "outline-danger" : "outline-success"}
             onClick={handleWatchlistToggle}
             disabled={watchlistLoading}
             className="me-2"
