@@ -22,7 +22,27 @@ const Dashboard: React.FC = () => {
         ]);
         setDashboardData(dashboard);
         setNetWorthHistory(history);
-        setWatchlistStocks(watchlist); 
+        
+        // Calculate P&L percentage for each stock if they have holdings
+        const watchlistWithPnL = watchlist.map(stock => {
+          let profit_loss_percentage = undefined;
+          
+          if (stock.total_shares_held > 0 && stock.total_cost_basis && stock.total_cost_basis > 0) {
+            // Calculate average cost basis from original purchase prices
+            const avgCostBasis = stock.total_cost_basis / stock.total_shares_held;
+            const currentValue = stock.current_price;
+            
+            // Calculate P&L percentage: ((current_price - avg_cost) / avg_cost) * 100
+            profit_loss_percentage = ((currentValue - avgCostBasis) / avgCostBasis) * 100;
+          }
+          
+          return {
+            ...stock,
+            profit_loss_percentage
+          };
+        });
+        
+        setWatchlistStocks(watchlistWithPnL);
 
       } catch (err) {
         setError('Failed to fetch dashboard data');
@@ -104,39 +124,51 @@ const Dashboard: React.FC = () => {
       <Row>
 {/* Watchlist Table  */}
         <Col lg={3}>
-          <Card className="mb-4">
-            <Card.Header style={{ minHeight: '56px', display: 'flex', alignItems: 'center' }}>
-              <h5 style={{ fontSize: '1.25rem', margin: 0 }}>Stocks Watchlist</h5>
+          <Card>
+            <Card.Header>
+              <h5 className="mb-0">Watchlist</h5>
             </Card.Header>
-            <Card.Body>
+            <Card.Body style={{ padding: '0' }}>
               {watchlistStocks.length === 0 ? (
                 <div className="text-center text-muted py-3">
                   <p>No stocks in watchlist</p>
                   <small>Visit stock pages to add stocks to your watchlist</small>
                 </div>
               ) : (
-                <Table striped bordered hover size="sm">
+                <Table striped hover size="sm" className="mb-0">
                   <thead>
                     <tr>
-                      <th>Symbol</th>
-                      <th>Name</th>
-                      <th>Price</th>
+                      <th>Stock</th>
+                      <th className="text-end">Price</th>
                     </tr>
                   </thead>
                   <tbody>
                     {watchlistStocks.map((stock) => (
                       <tr key={stock.symbol}>
                         <td>
+                          <div className="text-muted" style={{ fontSize: '0.85rem' }}>{stock.name}</div>
                           <Link to={`/stock/${stock.symbol}`} className="text-decoration-none">
                             <strong>{stock.symbol}</strong>
                           </Link>
                         </td>
-                        <td>
-                          <Link to={`/stock/${stock.symbol}`} className="text-decoration-none text-dark">
-                            {stock.name}
-                          </Link>
+                        <td className="text-end">
+                          {stock.profit_loss_percentage !== undefined ? (
+                            <div className="small" style={{ 
+                              color: stock.profit_loss_percentage >= 0 ? 'green' : 'red',
+                              fontWeight: 'bold',
+                              fontSize: '1rem'
+                            }}>
+                              {stock.profit_loss_percentage >= 0 ? '+' : ''}{stock.profit_loss_percentage.toFixed(2)}%
+                            </div>
+                          ) : (
+                            <div className="small text-muted" style={{ fontSize: '0.8rem' }}>
+                              No holdings
+                            </div>
+                          )}
+                          <div className="fw-bold">
+                            {formatCurrency(stock.current_price)}
+                          </div>
                         </td>
-                        <td>{formatCurrency(stock.current_price)}</td>
                       </tr>
                     ))}
                   </tbody>
