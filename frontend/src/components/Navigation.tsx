@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Navbar, Nav, Container, Card, Row, Col } from 'react-bootstrap';
+import { Navbar, Nav, Container, Card, Row, Col, ButtonGroup, Button } from 'react-bootstrap';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FaUserCircle, FaSearch } from 'react-icons/fa';
+import { FaUserCircle, FaHome, FaSun, FaMoon } from 'react-icons/fa';
+import { useTheme } from '../contexts/ThemeContext';
 import portfolioAPI from '../api';
 import { Stock } from '../types';
 
@@ -77,6 +78,7 @@ const SearchStockLogo: React.FC<{ symbol: string; name: string }> = ({ symbol, n
 };
 
 const Navigation: React.FC = () => {
+  const { isDarkMode, toggleDarkMode } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
@@ -84,6 +86,7 @@ const Navigation: React.FC = () => {
   const [filteredStocks, setFilteredStocks] = useState<Stock[]>([]);
   const [loading, setLoading] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch stocks on component mount
   useEffect(() => {
@@ -100,6 +103,22 @@ const Navigation: React.FC = () => {
     };
 
     fetchStocks();
+  }, []);
+
+  // Handle global keyboard shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (event: KeyboardEvent) => {
+      // Focus search bar when "/" is pressed
+      if (event.key === '/' && document.activeElement !== searchInputRef.current) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleGlobalKeyDown);
+    };
   }, []);
 
   // Handle clicking outside to close search results
@@ -166,134 +185,296 @@ const Navigation: React.FC = () => {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Form submission is handled by the search results display
-    // No need to navigate away, just let the search results show
+    // Select the first result when Enter is pressed
+    if (filteredStocks.length > 0) {
+      handleStockSelect(filteredStocks[0]);
+    }
   };
 
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    // Handle Enter key to select first result
+    if (e.key === 'Enter' && filteredStocks.length > 0) {
+      e.preventDefault();
+      handleStockSelect(filteredStocks[0]);
+    }
+  };
+
+  const commonPillHeight = '40px';
+  const commonBorderRadius = '20px';
+
   return (
-    <Navbar bg="dark" variant="dark" expand="lg">
-      <Container>
-        <Navbar.Brand as={Link} to="/">Portfolio Manager</Navbar.Brand>
-        <Navbar.Toggle aria-controls="basic-navbar-nav" />
-        <Navbar.Collapse id="basic-navbar-nav">
-          <Nav className="me-auto">
-            <Nav.Link
-              as={Link}
-              to="/"
-              active={location.pathname === '/'}
-            >
-              Dashboard
-            </Nav.Link>
-            <Nav.Link
-              as={Link}
-              to="/portfolios"
-              active={location.pathname === '/portfolios'}
-            >
-              Portfolios
-            </Nav.Link>
-            <Nav.Link
-              as={Link}
-              to="/stocks"
-              active={location.pathname === '/stocks'}
-            >
-              Stocks
-            </Nav.Link>
-            <Nav.Link
-              as={Link}
-              to="/transactions"
-              active={location.pathname === '/transactions'}
-            >
-              Transactions
-            </Nav.Link>
-          </Nav>
-          {/* Search bar and profile icon */}
-          <div className="d-flex align-items-center ms-auto">
-            {/* Search Bar */}
-            <div ref={searchRef} className="position-relative" style={{ marginRight: '16px' }}>
-              <form className="d-flex" onSubmit={handleSearchSubmit}>
-                <div className="input-group">
+    <>
+      {/* Top Navigation Bar */}
+      <Navbar 
+        expand="lg" 
+        style={{
+          background: isDarkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(26, 26, 26, 0.95)',
+          backdropFilter: 'blur(10px)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: '0 2px 20px rgba(0, 0, 0, 0.3)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 999,
+          padding: '16px 0'
+        }}
+        variant="dark"
+      >
+        <Container fluid className="px-4">
+          {/* Home Icon in Pill */}
+          <Link
+            to="/"
+            className="d-flex align-items-center justify-content-center text-decoration-none me-4"
+            style={{
+              width: commonPillHeight,
+              height: commonPillHeight,
+              borderRadius: commonBorderRadius,
+              backgroundColor: 'rgba(255,255,255,0.1)',
+              color: '#fff',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)';
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+          >
+            <FaHome size={18} />
+          </Link>
+          
+          <Navbar.Toggle aria-controls="basic-navbar-nav" />
+          <Navbar.Collapse id="basic-navbar-nav">
+            {/* Left Navigation Items - Outer Pill Container */}
+            <Nav className="me-auto">
+              <div
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                  borderRadius: commonBorderRadius,
+                  padding: '4px',
+                  display: 'flex',
+                  position: 'relative',
+                  height: commonPillHeight
+                }}
+              >
+                {/* Navigation Pills */}
+                {[
+                  { path: '/portfolios', label: 'Portfolios' },
+                  { path: '/stocks', label: 'Stocks' },
+                  { path: '/transactions', label: 'Transactions' }
+                ].map((item, index) => (
+                  <button
+                    key={item.path}
+                    onClick={() => navigate(item.path)}
+                    style={{
+                      background: location.pathname === item.path 
+                        ? '#007bff'
+                        : 'transparent',
+                      color: location.pathname === item.path 
+                        ? '#fff' 
+                        : 'rgba(255,255,255,0.8)',
+                      border: 'none',
+                      borderRadius: `${parseInt(commonBorderRadius) - 4}px`,
+                      padding: '0 16px',
+                      height: `${parseInt(commonPillHeight) - 8}px`,
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: '90px'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (location.pathname !== item.path) {
+                        e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (location.pathname !== item.path) {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </Nav>
+
+            {/* Center - Search Bar */}
+            <div className="mx-auto" style={{ flex: '0 0 auto', maxWidth: '600px', width: '100%' }}>
+              <div ref={searchRef} className="position-relative">
+                <form className="d-flex" onSubmit={handleSearchSubmit}>
                   <input
+                    ref={searchInputRef}
                     type="text"
-                    placeholder="Search stocks..."
+                    placeholder="Press '/' to search stocks..."
                     className="form-control"
-                    style={{ width: '300px' }}
+                    style={{ 
+                      width: '100%',
+                      height: commonPillHeight,
+                      fontFamily: 'system-ui, -apple-system, sans-serif',
+                      backgroundColor: 'rgba(255,255,255,0.1)',
+                      border: 'none',
+                      borderRadius: commonBorderRadius,
+                      padding: '0 20px',
+                      color: '#fff',
+                      fontSize: '14px',
+                      fontWeight: '400',
+                      transition: 'all 0.3s ease'
+                    }}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    onFocus={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)';
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                    }}
                   />
-                  <button type="submit" className="btn btn-outline-secondary">
-                    <FaSearch />
-                  </button>
-                </div>
-              </form>
+                  <style>
+                    {`
+                      .form-control::placeholder {
+                        color: rgba(255,255,255,0.5) !important;
+                        font-weight: 300;
+                      }
+                    `}
+                  </style>
+                </form>
 
-              {/* Search Results - Dropdown Style */}
-              {searchQuery.trim() !== '' && (
-                <div
-                  className="position-absolute w-100 bg-white border rounded shadow-sm"
-                  style={{
-                    top: '100%',
-                    zIndex: 1000,
-                    marginTop: '2px',
-                    maxHeight: 'calc(100vh - 120px)',
-                    overflowY: 'auto'
-                  }}
-                >
-                  {loading ? (
-                    <div className="p-2 text-center text-muted">
-                      <div className="spinner-border spinner-border-sm" role="status">
-                        <span className="visually-hidden">Loading...</span>
+                {/* Search Results - Modern Dropdown */}
+                {searchQuery.trim() !== '' && (
+                  <div
+                    className="position-absolute w-100 border-0 rounded-3 shadow-lg"
+                    style={{
+                      top: '100%',
+                      zIndex: 1000,
+                      marginTop: '8px',
+                      maxHeight: 'calc(100vh - 140px)',
+                      overflowY: 'auto',
+                      overflowX: 'hidden',
+                      backdropFilter: 'blur(20px)',
+                      backgroundColor: isDarkMode ? 'rgba(33,37,41,0.95)' : 'rgba(255,255,255,0.95)',
+                      border: isDarkMode ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    {loading ? (
+                      <div className="p-3 text-center text-muted">
+                        <div className="spinner-border spinner-border-sm text-primary" role="status">
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
                       </div>
-                    </div>
-                  ) : filteredStocks.length > 0 ? (
-                    filteredStocks.map((stock, index) => (
-                      <div
-                        key={stock.id}
-                        className={`p-2 border-bottom ${index === filteredStocks.length - 1 ? 'border-bottom-0' : ''}`}
-                        style={{
-                          cursor: 'pointer',
-                          transition: 'background-color 0.2s ease'
-                        }}
-                        onClick={() => handleStockSelect(stock)}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8f9fa'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                      >
-                        <div className="d-flex justify-content-between align-items-center">
-                          <div className="d-flex align-items-center">
-                            <SearchStockLogo symbol={stock.symbol} name={stock.name} />
-                            <div>
-                              <div className="fw-bold text-primary mb-0" style={{ fontSize: '14px' }}>
-                                {stock.symbol}
-                              </div>
-                              <div className="text-muted" style={{ fontSize: '12px' }}>
-                                {stock.name}
+                    ) : filteredStocks.length > 0 ? (
+                      filteredStocks.map((stock, index) => (
+                        <div
+                          key={stock.id}
+                          className={`p-3 ${index === filteredStocks.length - 1 ? '' : 'border-bottom border-light'}`}
+                          style={{
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            borderRadius: index === 0 ? '12px 12px 0 0' : index === filteredStocks.length - 1 ? '0 0 12px 12px' : '0',
+                            overflow: 'hidden'
+                          }}
+                          onClick={() => handleStockSelect(stock)}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.1)' : '#f8f9fa';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                        >
+                          <div className="d-flex justify-content-between align-items-center">
+                            <div className="d-flex align-items-center">
+                              <SearchStockLogo symbol={stock.symbol} name={stock.name} />
+                              <div>
+                                <div className={`fw-bold mb-0 ${isDarkMode ? 'text-light' : 'text-dark'}`} style={{ fontSize: '15px' }}>
+                                  {stock.symbol}
+                                </div>
+                                <div className="text-muted" style={{ fontSize: '13px', lineHeight: '1.2' }}>
+                                  {stock.name}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          <div className="text-end">
-                            <div className="fw-bold" style={{ fontSize: '14px' }}>
-                              ${stock.current_price.toFixed(2)}
+                            <div className="text-end">
+                              <div className="fw-bold text-success" style={{ fontSize: '15px' }}>
+                                ${stock.current_price.toFixed(2)}
+                              </div>
                             </div>
                           </div>
                         </div>
+                      ))
+                    ) : (
+                      <div className="p-3 text-center text-muted">
+                        <small>No stocks found matching "{searchQuery}"</small>
                       </div>
-                    ))
-                  ) : (
-                    <div className="p-2 text-center text-muted">
-                      <small>No stocks found matching "{searchQuery}"</small>
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-            {/* Profile Icon and Name */}
-            <Link to="/profile" className="d-flex align-items-center text-decoration-none">
-              <FaUserCircle size={30} />
-              <span style={{ marginLeft: '8px', color: 'white' }}>John Doe</span>
-            </Link>
-          </div>
-        </Navbar.Collapse>
-      </Container>
-    </Navbar>
+
+            {/* Right Side - Dark Mode Toggle and Profile */}
+            <div className="d-flex align-items-center gap-3 ms-auto">
+              {/* Dark Mode Toggle */}
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                onClick={toggleDarkMode}
+                className="d-flex align-items-center justify-content-center"
+                style={{
+                  width: commonPillHeight,
+                  height: commonPillHeight,
+                  borderRadius: commonBorderRadius,
+                  border: 'none',
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                  color: '#fff',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)';
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                {isDarkMode ? <FaSun size={18} /> : <FaMoon size={18} />}
+              </Button>
+
+              {/* Profile */}
+              <Link 
+                to="/profile" 
+                className="d-flex align-items-center text-decoration-none"
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                  borderRadius: commonBorderRadius,
+                  padding: '0 16px',
+                  height: commonPillHeight,
+                  transition: 'all 0.3s ease',
+                  color: '#fff'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <span style={{ marginRight: '8px', fontWeight: '500' }}>TheRoaringKitty</span>
+                <FaUserCircle size={24} />
+              </Link>
+            </div>
+          </Navbar.Collapse>
+        </Container>
+      </Navbar>
+    </>
   );
 };
 

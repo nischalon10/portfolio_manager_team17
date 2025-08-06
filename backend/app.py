@@ -723,6 +723,90 @@ def remove_from_watchlist(symbol):
         return jsonify({'error': f'Error removing from watchlist: {str(e)}'}), 500
 
 
+@app.route('/api/portfolios', methods=['POST'])
+def create_portfolio():
+    """Create a new portfolio"""
+    data = request.json
+    
+    if not data or 'name' not in data:
+        return jsonify({'error': 'Portfolio name is required'}), 400
+    
+    name = data['name'].strip()
+    description = data.get('description', '').strip()
+    
+    if not name:
+        return jsonify({'error': 'Portfolio name cannot be empty'}), 400
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Check if portfolio with same name already exists
+    cursor.execute('SELECT id FROM portfolios WHERE name = %s', (name,))
+    if cursor.fetchone():
+        conn.close()
+        return jsonify({'error': 'Portfolio with this name already exists'}), 409
+    
+    try:
+        cursor.execute('''
+            INSERT INTO portfolios (name, description, created_at)
+            VALUES (%s, %s, %s)
+        ''', (name, description, datetime.now()))
+        
+        portfolio_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'message': 'Portfolio created successfully',
+            'portfolio': {
+                'id': portfolio_id,
+                'name': name,
+                'description': description
+            }
+        }), 201
+        
+    except pymysql.Error as err:
+        conn.rollback()
+        conn.close()
+        return jsonify({'error': f'Database error: {str(err)}'}), 500
+
+
+@app.route('/api/portfolios/<int:portfolio_id>', methods=['DELETE'])
+def delete_portfolio(portfolio_id):
+    """Delete a portfolio and all its holdings"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Check if portfolio exists
+    cursor.execute('SELECT name FROM portfolios WHERE id = %s', (portfolio_id,))
+    portfolio = cursor.fetchone()
+    
+    if not portfolio:
+        conn.close()
+        return jsonify({'error': 'Portfolio not found'}), 404
+    
+    portfolio_name = portfolio[0]
+    
+    try:
+        # Delete all holdings first (foreign key constraint)
+        cursor.execute('DELETE FROM holdings WHERE portfolio_id = %s', (portfolio_id,))
+        
+        # Delete the portfolio
+        cursor.execute('DELETE FROM portfolios WHERE id = %s', (portfolio_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'message': f'Portfolio "{portfolio_name}" deleted successfully'
+        })
+        
+    except pymysql.Error as err:
+        conn.rollback()
+        conn.close()
+        return jsonify({'error': f'Database error: {str(err)}'}), 500
+
+
 @app.errorhandler(404)
 def not_found(error):
     """Handle 404 errors"""

@@ -80,60 +80,56 @@ const Transactions: React.FC = () => {
 
   return (
     <div>
-      <h1 className="mb-4">Transactions</h1>
-
-      {/* Summary Cards */}
-      <Row className="mb-4">
-        <Col md={3}>
-          <Card className="text-center">
-            <Card.Body>
-              <Card.Title>Total Transactions</Card.Title>
-              <h3 className="text-primary">{filteredTransactions.length}</h3>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col md={3}>
-          <Card className="text-center">
-            <Card.Body>
-              <Card.Title>Buy Transactions</Card.Title>
-              <h3 className="text-success">{buyTransactions.length}</h3>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col md={3}>
-          <Card className="text-center">
-            <Card.Body>
-              <Card.Title>Total Bought</Card.Title>
-              <h3 className="text-success">{formatCurrency(totalBuyValue)}</h3>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col md={3}>
-          <Card className="text-center">
-            <Card.Body>
-              <Card.Title>Total Sold</Card.Title>
-              <h3 className="text-danger">{formatCurrency(totalSellValue)}</h3>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+      <style>
+        {`
+          .form-control::placeholder {
+            color: #6c757d !important;
+            opacity: 0.7;
+          }
+          .form-control:focus::placeholder {
+            color: #adb5bd !important;
+          }
+        `}
+      </style>
+      <h1 className="mb-4">💳 Transactions</h1>
 
       {/* Filters */}
       <Row className="mb-4">
-        <Col md={6}>
+        <Col md={8}>
           <InputGroup>
             <FormControl
               placeholder="Search by symbol, name, or portfolio..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                borderRadius: '8px',
+                border: '1px solid #e9ecef',
+                padding: '12px 16px',
+                fontSize: '14px'
+              }}
+              className="form-control"
             />
           </InputGroup>
         </Col>
-        <Col md={3}>
+        <Col md={4}>
           <FormControl
             as="select"
             value={filterType}
             onChange={(e) => setFilterType(e.target.value as 'ALL' | 'BUY' | 'SELL')}
+            style={{
+              borderRadius: '8px',
+              border: '1px solid #e9ecef',
+              padding: '12px 16px',
+              fontSize: '14px',
+              textAlign: 'right' as const,
+              backgroundColor: '#fff',
+              appearance: 'none',
+              backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6,9 12,15 18,9\'%3e%3c/polyline%3e%3c/svg%3e")',
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'left 12px center',
+              backgroundSize: '16px',
+              paddingLeft: '40px'
+            }}
           >
             <option value="ALL">All Transactions</option>
             <option value="BUY">Buy Only</option>
@@ -160,44 +156,55 @@ const Transactions: React.FC = () => {
                 : 'No transactions available.'}
             </Alert>
           ) : (
-            <Table striped bordered hover responsive>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Type</th>
-                  <th>Symbol</th>
-                  <th>Company</th>
-                  <th>Portfolio</th>
-                  <th>Quantity</th>
-                  <th>Price</th>
-                  <th>Total Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTransactions.map((transaction, index) => (
-                  <tr key={index}>
-                    <td>{formatDateTime(transaction.timestamp)}</td>
-                    <td>
-                      <Badge bg={transaction.type === 'BUY' ? 'success' : 'danger'}>
-                        {transaction.type}
-                      </Badge>
-                    </td>
-                    <td>
-                      <Link to={`/stock/${transaction.symbol}`} className="text-decoration-none">
-                        <strong>{transaction.symbol}</strong>
-                      </Link>
-                    </td>
-                    <td>{transaction.name}</td>
-                    <td>{transaction.portfolio_name}</td>
-                    <td>{transaction.quantity}</td>
-                    <td>{formatCurrency(transaction.price)}</td>
-                    <td className={transaction.type === 'BUY' ? 'text-danger' : 'text-success'}>
-                      {transaction.type === 'BUY' ? '-' : '+'}{formatCurrency(getTotalValue(transaction))}
-                    </td>
+            <div style={{ 
+              maxHeight: 'calc(100vh - 400px)', 
+              overflowY: 'auto',
+              overflowX: 'auto'
+            }}>
+              <Table striped bordered hover responsive>
+                <thead style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa',
+                  zIndex: 10
+                }}>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Symbol</th>
+                    <th>Company</th>
+                    <th>Portfolio</th>
+                    <th>Quantity</th>
+                    <th>Price</th>
+                    <th>Total Value</th>
                   </tr>
-                ))}
-              </tbody>
-            </Table>
+                </thead>
+                <tbody>
+                  {filteredTransactions.map((transaction, index) => (
+                    <tr key={index}>
+                      <td>{formatDateTime(transaction.timestamp)}</td>
+                      <td>
+                        <Badge bg={transaction.type === 'BUY' ? 'success' : 'danger'}>
+                          {transaction.type}
+                        </Badge>
+                      </td>
+                      <td>
+                        <Link to={`/stock/${transaction.symbol}`} className="text-decoration-none">
+                          <strong>{transaction.symbol}</strong>
+                        </Link>
+                      </td>
+                      <td>{transaction.name}</td>
+                      <td>{transaction.portfolio_name}</td>
+                      <td>{transaction.quantity}</td>
+                      <td>{formatCurrency(transaction.price)}</td>
+                      <td className={transaction.type === 'BUY' ? 'text-danger' : 'text-success'}>
+                        {transaction.type === 'BUY' ? '-' : '+'}{formatCurrency(getTotalValue(transaction))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
           )}
         </Card.Body>
       </Card>

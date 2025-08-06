@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Row, Col, Card, Table, Alert, Spinner, InputGroup, FormControl, Button, Modal, Form, ButtonGroup } from 'react-bootstrap';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useTheme } from '../contexts/ThemeContext';
 import portfolioAPI from '../api';
 import { Stock, Portfolio, TradeRequest } from '../types';
 
@@ -118,6 +119,7 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
     />
   );
 }; const Stocks: React.FC = () => {
+  const { isDarkMode } = useTheme();
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [filteredStocks, setFilteredStocks] = useState<Stock[]>([]);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
@@ -342,90 +344,121 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
 
   return (
     <div>
-      <h1 className="mb-4">Stocks</h1>
+      {/* Header Section */}
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2>📈 All Stocks ({filteredStocks.length})</h2>
+      </div>
 
-      {/* Search */}
-      <Row className="mb-4">
-        <Col md={6}>
-          <InputGroup>
-            <FormControl
-              placeholder="Search stocks by symbol or name..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </InputGroup>
-        </Col>
-      </Row>
-
-      {/* Stocks Table */}
-      <Card>
-        <Card.Header>
-          <h5>All Stocks ({filteredStocks.length})</h5>
-        </Card.Header>
-        <Card.Body>
+      {/* Stocks Content */}
+      <div>
           {filteredStocks.length === 0 ? (
             <Alert variant="info">
               {searchTerm ? 'No stocks found matching your search.' : 'No stocks available.'}
             </Alert>
           ) : (
-            <Table striped bordered hover responsive>
-              <thead>
-                <tr>
-                  <th>Logo</th>
-                  <th>Symbol</th>
-                  <th>Name</th>
-                  <th>Current Price</th>
-                  <th>Shares Held</th>
-                  <th>Value Held</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredStocks.map((stock) => (
-                  <tr key={stock.id}>
-                    <td className="text-center">
-                      <StockLogo symbol={stock.symbol} name={stock.name} size={40} />
-                    </td>
-                    <td>
-                      <Link to={`/stock/${stock.symbol}`} className="text-decoration-none">
-                        <strong>{stock.symbol}</strong>
-                      </Link>
-                    </td>
-                    <td>{stock.name}</td>
-                    <td>{formatCurrency(stock.current_price)}</td>
-                    <td>{stock.total_shares_held}</td>
-                    <td className={stock.total_value_held > 0 ? 'text-success' : ''}>
-                      {formatCurrency(stock.total_value_held)}
-                    </td>
-                    <td>
-                      <div className="d-flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="success"
-                          onClick={() => openTradeModal(stock, 'BUY')}
-                        >
-                          Buy
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() => openTradeModal(stock, 'SELL')}
-                          disabled={stock.total_shares_held === 0}
-                        >
-                          Sell
-                        </Button>
-                      </div>
-                    </td>
+            <div 
+              className="border-0 rounded-3 shadow-lg overflow-hidden"
+              style={{
+                backdropFilter: 'blur(20px)',
+                backgroundColor: isDarkMode ? 'rgba(33,37,41,0.95)' : 'rgba(255,255,255,0.95)',
+                border: isDarkMode ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(0,0,0,0.1)'
+              }}
+            >
+              <Table hover responsive className="mb-0">
+                <thead style={{ backgroundColor: isDarkMode ? 'rgba(19, 19, 19, 0.86)' : '#161616ff' }}>
+                  <tr>
+                    <th className="border-0 py-3 px-4" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Logo</th>
+                    <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Symbol</th>
+                    <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Name</th>
+                    <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Current Price</th>
+                    <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Shares Held</th>
+                    <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Value Held</th>
+                    <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </Table>
+                </thead>
+                <tbody>
+                  {filteredStocks.map((stock, index) => (
+                    <tr 
+                      key={stock.id}
+                      className={index === filteredStocks.length - 1 ? '' : 'border-bottom'}
+                      style={{
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
+                        borderBottomWidth: '1px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.1)' : '#f8f9fa';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <td className="border-0 py-3 px-4">
+                        <StockLogo symbol={stock.symbol} name={stock.name} size={40} />
+                      </td>
+                      <td className="border-0 py-3">
+                        <Link to={`/stock/${stock.symbol}`} className="text-decoration-none">
+                          <strong className="text-primary" style={{ fontSize: '15px' }}>{stock.symbol}</strong>
+                        </Link>
+                      </td>
+                      <td className="border-0 py-3">
+                        <span style={{ fontSize: '14px', color: isDarkMode ? '#fff' : 'inherit' }}>{stock.name}</span>
+                      </td>
+                      <td className="border-0 py-3">
+                        <span className="fw-bold text-success" style={{ fontSize: '15px' }}>
+                          {formatCurrency(stock.current_price)}
+                        </span>
+                      </td>
+                      <td className="border-0 py-3">
+                        <span style={{ fontSize: '14px', color: isDarkMode ? '#fff' : 'inherit' }}>{stock.total_shares_held}</span>
+                      </td>
+                      <td className={`border-0 py-3 ${stock.total_value_held > 0 ? 'text-success fw-bold' : ''}`}>
+                        <span style={{ fontSize: '14px', color: stock.total_value_held > 0 ? 'inherit' : (isDarkMode ? '#fff' : 'inherit') }}>
+                          {formatCurrency(stock.total_value_held)}
+                        </span>
+                      </td>
+                      <td className="border-0 py-3">
+                        <div className="d-flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="success"
+                            onClick={() => openTradeModal(stock, 'BUY')}
+                            style={{
+                              borderRadius: '16px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              padding: '6px 16px'
+                            }}
+                          >
+                            Buy
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => openTradeModal(stock, 'SELL')}
+                            disabled={stock.total_shares_held === 0}
+                            style={{
+                              borderRadius: '16px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              padding: '6px 16px'
+                            }}
+                          >
+                            Sell
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
           )}
-        </Card.Body>
-      </Card>
+        </div>
 
-      {/* Quick Trade Modal */}
-      <Modal show={showTradeModal} onHide={closeTradeModal} size="lg">
+        {/* Quick Trade Modal */}
+        <Modal show={showTradeModal} onHide={closeTradeModal} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>
             {tradeType} {selectedStock?.symbol} - {selectedStock?.name}

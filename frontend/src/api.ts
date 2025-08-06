@@ -32,6 +32,16 @@ export const portfolioAPI = {
     return response.data;
   },
 
+  createPortfolio: async (portfolioData: { name: string; description?: string }): Promise<{ message: string; portfolio: { id: number; name: string; description: string } }> => {
+    const response = await api.post('/portfolios', portfolioData);
+    return response.data;
+  },
+
+  deletePortfolio: async (portfolioId: number): Promise<{ message: string }> => {
+    const response = await api.delete(`/portfolios/${portfolioId}`);
+    return response.data;
+  },
+
   getPortfolioValue: async (portfolioId: number): Promise<{ value: number }> => {
     const response = await api.get(`/portfolio/${portfolioId}/value`);
     return response.data;

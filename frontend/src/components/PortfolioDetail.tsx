@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { Row, Col, Card, Table, Alert, Spinner, Badge, Button, Form, ButtonGroup } from 'react-bootstrap';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Row, Col, Card, Table, Alert, Spinner, Badge, Button, Form, ButtonGroup, Modal } from 'react-bootstrap';
 import portfolioAPI from '../api';
 import { PortfolioDetail, Stock, TradeRequest } from '../types';
 
@@ -99,6 +99,7 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
 
 const PortfolioDetailComponent: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [portfolioDetail, setPortfolioDetail] = useState<PortfolioDetail | null>(null);
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,6 +109,12 @@ const PortfolioDetailComponent: React.FC = () => {
   const [tradeError, setTradeError] = useState<string | null>(null);
   const [tradeSuccess, setTradeSuccess] = useState<string | null>(null);
   const [tradeType, setTradeType] = useState<'BUY' | 'SELL'>('BUY');
+
+  // Delete portfolio states
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [tradeForm, setTradeForm] = useState({
     selectedStock: '',
@@ -236,6 +243,39 @@ const PortfolioDetailComponent: React.FC = () => {
     }
   };
 
+  const handleDeletePortfolio = async () => {
+    if (!portfolioDetail || deleteConfirmName !== portfolioDetail.portfolio.name) {
+      setDeleteError('Please type the exact portfolio name to confirm deletion');
+      return;
+    }
+
+    try {
+      setDeleteLoading(true);
+      setDeleteError(null);
+
+      await portfolioAPI.deletePortfolio(portfolioDetail.portfolio.id);
+
+      // Navigate back to portfolios page
+      navigate('/portfolios');
+    } catch (err: any) {
+      setDeleteError(err.response?.data?.error || 'Failed to delete portfolio');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const openDeleteModal = () => {
+    setShowDeleteModal(true);
+    setDeleteConfirmName('');
+    setDeleteError(null);
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setDeleteConfirmName('');
+    setDeleteError(null);
+  };
+
   if (loading) {
     return (
       <div className="text-center mt-5">
@@ -268,9 +308,22 @@ const PortfolioDetailComponent: React.FC = () => {
 
       <Row className="mb-4">
         <Col>
-          <h1>{portfolioDetail?.portfolio.name}</h1>
-          <p className="text-muted">{portfolioDetail?.portfolio.description}</p>
-          <Link to="/portfolios" className="btn btn-secondary">← Back to Portfolios</Link>
+          <div className="d-flex justify-content-between align-items-start">
+            <div>
+              <h1>{portfolioDetail?.portfolio.name}</h1>
+              <p className="text-muted">{portfolioDetail?.portfolio.description}</p>
+              <Link to="/portfolios" className="btn btn-secondary">← Back to Portfolios</Link>
+            </div>
+            <div>
+              <Button 
+                variant="outline-danger" 
+                onClick={openDeleteModal}
+                className="mt-2"
+              >
+                Delete Portfolio
+              </Button>
+            </div>
+          </div>
         </Col>
       </Row>
 
@@ -303,6 +356,133 @@ const PortfolioDetailComponent: React.FC = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* Portfolio Composition Bar */}
+      {portfolioDetail?.holdings.length > 0 && (
+        <Row className="mb-4">
+          <Col>
+            <Card>
+              <Card.Header>
+                <h5>Portfolio Composition</h5>
+              </Card.Header>
+              <Card.Body>
+                <div className="portfolio-composition-bar" style={{ 
+                  display: 'flex', 
+                  height: '80px', 
+                  borderRadius: '8px', 
+                  overflow: 'hidden',
+                  border: '2px solid #e9ecef',
+                  backgroundColor: '#f8f9fa'
+                }}>
+                  {portfolioDetail.holdings.map((holding, index) => {
+                    const percentage = (holding.current_value / totalValue) * 100;
+                    const isSmallSegment = percentage < 8; // Hide text for segments smaller than 8%
+                    
+                    // Generate a consistent color for each stock
+                    const colors = [
+                      '#007bff', '#28a745', '#dc3545', '#ffc107', '#17a2b8',
+                      '#6f42c1', '#fd7e14', '#20c997', '#e83e8c', '#6c757d'
+                    ];
+                    const segmentColor = colors[index % colors.length];
+                    
+                    return (
+                      <div
+                        key={holding.id}
+                        className="portfolio-segment d-flex align-items-center justify-content-center position-relative"
+                        style={{
+                          width: `${percentage}%`,
+                          backgroundColor: segmentColor,
+                          minWidth: percentage < 2 ? '2px' : 'auto', // Minimum width for very small segments
+                          transition: 'all 0.3s ease',
+                          cursor: 'pointer'
+                        }}
+                        title={`${holding.symbol}: ${percentage.toFixed(1)}% (${formatCurrency(holding.current_value)})`}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.opacity = '0.8';
+                          e.currentTarget.style.transform = 'scaleY(1.1)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.opacity = '1';
+                          e.currentTarget.style.transform = 'scaleY(1)';
+                        }}
+                      >
+                        {!isSmallSegment && (
+                          <div className="text-white text-center" style={{ 
+                            fontSize: '12px', 
+                            fontWeight: '600',
+                            textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
+                            lineHeight: '1.2'
+                          }}>
+                            <div className="d-flex flex-column align-items-center">
+                              <StockLogo 
+                                symbol={holding.symbol} 
+                                name={holding.name} 
+                                size={24} 
+                              />
+                              <div style={{ fontSize: '10px', marginTop: '2px' }}>
+                                {holding.symbol}
+                              </div>
+                              <div style={{ fontSize: '9px' }}>
+                                {percentage.toFixed(1)}%
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {isSmallSegment && percentage >= 1 && (
+                          <div className="text-white text-center" style={{ 
+                            fontSize: '8px', 
+                            fontWeight: '600',
+                            textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
+                            writingMode: 'vertical-rl' as any,
+                            textOrientation: 'mixed'
+                          }}>
+                            {holding.symbol}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                {/* Legend below the bar */}
+                <div className="mt-3">
+                  <div className="d-flex flex-wrap gap-3 justify-content-center">
+                    {portfolioDetail.holdings.map((holding, index) => {
+                      const percentage = (holding.current_value / totalValue) * 100;
+                      const colors = [
+                        '#007bff', '#28a745', '#dc3545', '#ffc107', '#17a2b8',
+                        '#6f42c1', '#fd7e14', '#20c997', '#e83e8c', '#6c757d'
+                      ];
+                      const segmentColor = colors[index % colors.length];
+                      
+                      return (
+                        <div key={holding.id} className="d-flex align-items-center" style={{ fontSize: '12px' }}>
+                          <div
+                            className="me-2"
+                            style={{
+                              width: '12px',
+                              height: '12px',
+                              backgroundColor: segmentColor,
+                              borderRadius: '2px'
+                            }}
+                          ></div>
+                          <StockLogo symbol={holding.symbol} name={holding.name} size={16} />
+                          <span className="me-2">
+                            <strong>{holding.symbol}</strong>
+                          </span>
+                          <span className="text-muted">
+                            {percentage.toFixed(1)}% • {formatCurrency(holding.current_value)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+      )}
 
       <Row>
         {/* Left Side - Embedded Trade Panel */}
@@ -663,6 +843,90 @@ const PortfolioDetailComponent: React.FC = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* Delete Portfolio Modal */}
+      <Modal show={showDeleteModal} onHide={closeDeleteModal} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Delete Portfolio</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {deleteError && (
+            <Alert variant="danger" className="mb-3">
+              {deleteError}
+            </Alert>
+          )}
+          
+          <Alert variant="warning" className="mb-4">
+            <Alert.Heading>⚠️ Permanent Action</Alert.Heading>
+            <p>
+              You are about to permanently delete the portfolio <strong>"{portfolioDetail?.portfolio.name}"</strong>.
+            </p>
+            {portfolioDetail?.holdings.length > 0 && (
+              <p>
+                <strong>This portfolio contains {portfolioDetail.holdings.length} holdings that will be permanently removed.</strong>
+              </p>
+            )}
+            <p className="mb-0">
+              This action <strong>cannot be undone</strong>. All portfolio data, holdings, and transaction history will be lost.
+            </p>
+          </Alert>
+          
+          <Form.Group className="mb-3">
+            <Form.Label>
+              To confirm deletion, please type the portfolio name: <strong>{portfolioDetail?.portfolio.name}</strong>
+            </Form.Label>
+            <Form.Control
+              type="text"
+              placeholder={`Type "${portfolioDetail?.portfolio.name}" to confirm`}
+              value={deleteConfirmName}
+              onChange={(e) => setDeleteConfirmName(e.target.value)}
+              disabled={deleteLoading}
+              autoFocus
+              style={{
+                fontFamily: 'monospace',
+                fontSize: '14px'
+              }}
+            />
+            <Form.Text className="text-muted">
+              Portfolio names are case-sensitive
+            </Form.Text>
+          </Form.Group>
+
+          {portfolioDetail?.holdings.length > 0 && (
+            <div className="mb-3">
+              <h6>Holdings that will be deleted:</h6>
+              <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                {portfolioDetail.holdings.map((holding, index) => (
+                  <div key={index} className="d-flex justify-content-between align-items-center p-2 border-bottom">
+                    <span>
+                      <strong>{holding.symbol}</strong> - {holding.name}
+                    </span>
+                    <span>
+                      {holding.quantity} shares • {formatCurrency(holding.current_value)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            variant="secondary" 
+            onClick={closeDeleteModal}
+            disabled={deleteLoading}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="danger" 
+            onClick={handleDeletePortfolio}
+            disabled={deleteLoading || deleteConfirmName !== portfolioDetail?.portfolio.name}
+          >
+            {deleteLoading ? 'Deleting...' : 'Delete Portfolio Permanently'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };
