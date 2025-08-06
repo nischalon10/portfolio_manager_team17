@@ -377,8 +377,45 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
                     <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Value Held</th>
                     <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Actions</th>       
                   </tr>
-                ))}
-              </tbody>
+                </thead>
+                <tbody>
+                  {filteredStocks.map(stock => (
+                    <tr key={stock.symbol}>
+                      <td className="align-middle px-4">
+                        <StockLogo symbol={stock.symbol} name={stock.name} size={32} />
+                      </td>
+                      <td className="align-middle fw-bold">{stock.symbol}</td>
+                      <td className="align-middle">{stock.name}</td>
+                      <td className="align-middle">{formatCurrency(stock.current_price)}</td>
+                      <td className="align-middle">{stock.total_shares_held || 0}</td>
+                      <td className="align-middle">{formatCurrency((stock.total_shares_held || 0) * stock.current_price)}</td>
+                      <td className="align-middle">
+                        <Button
+                          variant="success"
+                          size="sm"
+                          className="me-2"
+                          onClick={() => openTradeModal(stock, 'BUY')}
+                        >
+                          Buy
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          disabled={!stock.total_shares_held}
+                          onClick={() => openTradeModal(stock, 'SELL')}
+                        >
+                          Sell
+                        </Button>
+                        <Link
+                          to={`/stocks/${stock.symbol}`}
+                          className="btn btn-outline-secondary btn-sm ms-2"
+                        >
+                          Details
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
             </Table>
           </div>
         )}
