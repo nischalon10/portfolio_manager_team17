@@ -351,104 +351,31 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
 
       {/* Stocks Content */}
       <div>
-        {filteredStocks.length === 0 ? (
-          <Alert variant="info">
-            {searchTerm ? 'No stocks found matching your search.' : 'No stocks available.'}
-          </Alert>
-        ) : (
-          <div
-            className="border-0 rounded-3 shadow-lg overflow-hidden"
-            style={{
-              backdropFilter: 'blur(20px)',
-              backgroundColor: isDarkMode ? 'rgba(33,37,41,0.95)' : 'rgba(255,255,255,0.95)',
-              border: isDarkMode ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(0,0,0,0.1)'
-            }}
-          >
-            <Table hover responsive className="mb-0">
-              <thead style={{ backgroundColor: isDarkMode ? 'rgba(19, 19, 19, 0.86)' : '#161616ff' }}>
-                <tr>
-                  <th className="border-0 py-3 px-4" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Logo</th>
-                  <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Symbol</th>
-                  <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Name</th>
-                  <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Current Price</th>
-                  <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Shares Held</th>
-                  <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Value Held</th>
-                  <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredStocks.map((stock, index) => (
-                  <tr
-                    key={stock.id}
-                    className={index === filteredStocks.length - 1 ? '' : 'border-bottom'}
-                    style={{
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
-                      borderBottomWidth: '1px'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.1)' : '#f8f9fa';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    <td className="border-0 py-3 px-4">
-                      <StockLogo symbol={stock.symbol} name={stock.name} size={40} />
-                    </td>
-                    <td className="border-0 py-3">
-                      <Link to={`/stock/${stock.symbol}`} className="text-decoration-none">
-                        <strong className="text-primary" style={{ fontSize: '15px' }}>{stock.symbol}</strong>
-                      </Link>
-                    </td>
-                    <td className="border-0 py-3">
-                      <span style={{ fontSize: '14px', color: isDarkMode ? '#fff' : 'inherit' }}>{stock.name}</span>
-                    </td>
-                    <td className="border-0 py-3">
-                      <span className="fw-bold text-success" style={{ fontSize: '15px' }}>
-                        {formatCurrency(stock.current_price)}
-                      </span>
-                    </td>
-                    <td className="border-0 py-3">
-                      <span style={{ fontSize: '14px', color: isDarkMode ? '#fff' : 'inherit' }}>{stock.total_shares_held}</span>
-                    </td>
-                    <td className={`border-0 py-3 ${stock.total_value_held > 0 ? 'text-success fw-bold' : ''}`}>
-                      <span style={{ fontSize: '14px', color: stock.total_value_held > 0 ? 'inherit' : (isDarkMode ? '#fff' : 'inherit') }}>
-                        {formatCurrency(stock.total_value_held)}
-                      </span>
-                    </td>
-                    <td className="border-0 py-3">
-                      <div className="d-flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="success"
-                          onClick={() => openTradeModal(stock, 'BUY')}
-                          style={{
-                            borderRadius: '16px',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            padding: '6px 16px'
-                          }}
-                        >
-                          Buy
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() => openTradeModal(stock, 'SELL')}
-                          disabled={stock.total_shares_held === 0}
-                          style={{
-                            borderRadius: '16px',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            padding: '6px 16px'
-                          }}
-                        >
-                          Sell
-                        </Button>
-                      </div>
-                    </td>
+          {filteredStocks.length === 0 ? (
+            <Alert variant="info">
+              {searchTerm ? 'No stocks found matching your search.' : 'No stocks available.'}
+            </Alert>
+          ) : (
+            <div 
+              className="border-0 rounded-3 shadow-lg overflow-hidden"
+              style={{
+                backdropFilter: 'blur(20px)',
+                backgroundColor: isDarkMode ? 'rgba(33,37,41,0.95)' : 'rgba(255,255,255,0.95)',
+                border: isDarkMode ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(0,0,0,0.1)'
+              }}
+            >
+              <Table hover responsive className="mb-0">
+                <thead style={{ 
+                  borderBottom: '1px solid ' + (isDarkMode ? 'rgba(35, 34, 34, 0.3)' : 'rgba(0,0,0,0.2)')
+                }}>
+                  <tr>
+                    <th className={`border-0 py-3 px-4 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Logo</th>
+                    <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Symbol</th>
+                    <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Name</th>
+                    <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Current Price</th>
+                    <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Shares Held</th>
+                    <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Value Held</th>
+                    <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Actions</th>       
                   </tr>
                 ))}
               </tbody>
