@@ -365,15 +365,17 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
               }}
             >
               <Table hover responsive className="mb-0">
-                <thead style={{ backgroundColor: isDarkMode ? 'rgba(19, 19, 19, 0.86)' : '#161616ff' }}>
+                <thead style={{ 
+                  borderBottom: '1px solid ' + (isDarkMode ? 'rgba(35, 34, 34, 0.3)' : 'rgba(0,0,0,0.2)')
+                }}>
                   <tr>
-                    <th className="border-0 py-3 px-4" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Logo</th>
-                    <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Symbol</th>
-                    <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Name</th>
-                    <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Current Price</th>
-                    <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Shares Held</th>
-                    <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Value Held</th>
-                    <th className="border-0 py-3" style={{ color: isDarkMode ? '#fff' : 'inherit' }}>Actions</th>
+                    <th className={`border-0 py-3 px-4 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Logo</th>
+                    <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Symbol</th>
+                    <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Name</th>
+                    <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Current Price</th>
+                    <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Shares Held</th>
+                    <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Value Held</th>
+                    <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
