@@ -384,11 +384,25 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
                       <td className="align-middle px-4">
                         <StockLogo symbol={stock.symbol} name={stock.name} size={32} />
                       </td>
-                      <td className="align-middle fw-bold">{stock.symbol}</td>
+                      <td className="align-middle fw-bold">
+                        <Link 
+                          to={`/stock/${stock.symbol}`} 
+                          className="text-decoration-none"
+                        >
+                          {stock.symbol}
+                        </Link>
+                      </td>
                       <td className="align-middle">{stock.name}</td>
                       <td className="align-middle">{formatCurrency(stock.current_price)}</td>
                       <td className="align-middle">{stock.total_shares_held || 0}</td>
-                      <td className="align-middle">{formatCurrency((stock.total_shares_held || 0) * stock.current_price)}</td>
+                      <td 
+                        className="align-middle fw-bold" 
+                        style={{ 
+                          color: (stock.total_shares_held && stock.total_shares_held > 0) ? '#198754' : 'inherit' 
+                        }}
+                      >
+                        {formatCurrency((stock.total_shares_held || 0) * stock.current_price)}
+                      </td>
                       <td className="align-middle">
                         <Button
                           variant="success"
@@ -401,17 +415,11 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
                         <Button
                           variant="danger"
                           size="sm"
-                          disabled={!stock.total_shares_held}
+                          disabled={!stock.total_shares_held || stock.total_shares_held <= 0}
                           onClick={() => openTradeModal(stock, 'SELL')}
                         >
                           Sell
                         </Button>
-                        <Link
-                          to={`/stocks/${stock.symbol}`}
-                          className="btn btn-outline-secondary btn-sm ms-2"
-                        >
-                          Details
-                        </Link>
                       </td>
                     </tr>
                   ))}
