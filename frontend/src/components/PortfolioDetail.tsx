@@ -120,7 +120,7 @@ const PortfolioDetailComponent: React.FC = () => {
     selectedStock: '',
     amount: '',
     shares: '',
-    inputType: 'amount' as 'amount' | 'shares'
+    inputType: 'shares' as 'amount' | 'shares'
   });
 
   useEffect(() => {
@@ -165,19 +165,7 @@ const PortfolioDetailComponent: React.FC = () => {
     let totalAmount = 0;
 
     // Calculate quantity and amount based on input type
-    if (tradeForm.inputType === 'amount') {
-      if (!tradeForm.amount) {
-        setTradeError('Please enter an amount');
-        return;
-      }
-      totalAmount = parseFloat(tradeForm.amount);
-      quantity = Math.floor(totalAmount / currentPrice);
-
-      if (quantity <= 0) {
-        setTradeError('Amount must be sufficient to buy at least 1 share');
-        return;
-      }
-    } else {
+    if (tradeForm.inputType === 'shares') {
       if (!tradeForm.shares) {
         setTradeError('Please enter number of shares');
         return;
@@ -187,6 +175,18 @@ const PortfolioDetailComponent: React.FC = () => {
 
       if (quantity <= 0) {
         setTradeError('Number of shares must be greater than 0');
+        return;
+      }
+    } else {
+      if (!tradeForm.amount) {
+        setTradeError('Please enter an amount');
+        return;
+      }
+      totalAmount = parseFloat(tradeForm.amount);
+      quantity = Math.floor(totalAmount / currentPrice);
+
+      if (quantity <= 0) {
+        setTradeError('Amount must be sufficient to buy at least 1 share');
         return;
       }
     }
@@ -234,7 +234,7 @@ const PortfolioDetailComponent: React.FC = () => {
         selectedStock: '',
         amount: '',
         shares: '',
-        inputType: 'amount'
+        inputType: 'shares'
       });
     } catch (err: any) {
       setTradeError(err.response?.data?.error || `Failed to ${tradeType.toLowerCase()} stock`);
@@ -315,8 +315,8 @@ const PortfolioDetailComponent: React.FC = () => {
               <Link to="/portfolios" className="btn btn-secondary">← Back to Portfolios</Link>
             </div>
             <div>
-              <Button 
-                variant="outline-danger" 
+              <Button
+                variant="outline-danger"
                 onClick={openDeleteModal}
                 className="mt-2"
               >
@@ -366,10 +366,10 @@ const PortfolioDetailComponent: React.FC = () => {
                 <h5>Portfolio Composition</h5>
               </Card.Header>
               <Card.Body>
-                <div className="portfolio-composition-bar" style={{ 
-                  display: 'flex', 
-                  height: '80px', 
-                  borderRadius: '8px', 
+                <div className="portfolio-composition-bar" style={{
+                  display: 'flex',
+                  height: '80px',
+                  borderRadius: '8px',
                   overflow: 'hidden',
                   border: '2px solid #e9ecef',
                   backgroundColor: '#f8f9fa'
@@ -377,14 +377,14 @@ const PortfolioDetailComponent: React.FC = () => {
                   {portfolioDetail.holdings.map((holding, index) => {
                     const percentage = (holding.current_value / totalValue) * 100;
                     const isSmallSegment = percentage < 8; // Hide text for segments smaller than 8%
-                    
+
                     // Generate a consistent color for each stock
                     const colors = [
                       '#007bff', '#28a745', '#dc3545', '#ffc107', '#17a2b8',
                       '#6f42c1', '#fd7e14', '#20c997', '#e83e8c', '#6c757d'
                     ];
                     const segmentColor = colors[index % colors.length];
-                    
+
                     return (
                       <div
                         key={holding.id}
@@ -407,17 +407,17 @@ const PortfolioDetailComponent: React.FC = () => {
                         }}
                       >
                         {!isSmallSegment && (
-                          <div className="text-white text-center" style={{ 
-                            fontSize: '12px', 
+                          <div className="text-white text-center" style={{
+                            fontSize: '12px',
                             fontWeight: '600',
                             textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
                             lineHeight: '1.2'
                           }}>
                             <div className="d-flex flex-column align-items-center">
-                              <StockLogo 
-                                symbol={holding.symbol} 
-                                name={holding.name} 
-                                size={24} 
+                              <StockLogo
+                                symbol={holding.symbol}
+                                name={holding.name}
+                                size={24}
                               />
                               <div style={{ fontSize: '10px', marginTop: '2px' }}>
                                 {holding.symbol}
@@ -429,8 +429,8 @@ const PortfolioDetailComponent: React.FC = () => {
                           </div>
                         )}
                         {isSmallSegment && percentage >= 1 && (
-                          <div className="text-white text-center" style={{ 
-                            fontSize: '8px', 
+                          <div className="text-white text-center" style={{
+                            fontSize: '8px',
                             fontWeight: '600',
                             textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
                             writingMode: 'vertical-rl' as any,
@@ -443,7 +443,7 @@ const PortfolioDetailComponent: React.FC = () => {
                     );
                   })}
                 </div>
-                
+
                 {/* Legend below the bar */}
                 <div className="mt-3">
                   <div className="d-flex flex-wrap gap-3 justify-content-center">
@@ -454,7 +454,7 @@ const PortfolioDetailComponent: React.FC = () => {
                         '#6f42c1', '#fd7e14', '#20c997', '#e83e8c', '#6c757d'
                       ];
                       const segmentColor = colors[index % colors.length];
-                      
+
                       return (
                         <div key={holding.id} className="d-flex align-items-center" style={{ fontSize: '12px' }}>
                           <div
@@ -568,22 +568,9 @@ const PortfolioDetailComponent: React.FC = () => {
                 <div className="mb-3">
                   <div className="d-flex border rounded p-1" style={{ backgroundColor: '#f8f9fa' }}>
                     <Button
-                      variant={tradeForm.inputType === 'amount' ? 'primary' : 'light'}
-                      size="sm"
-                      className="flex-fill me-1"
-                      style={{
-                        borderRadius: '6px',
-                        fontWeight: '500',
-                        fontSize: '14px'
-                      }}
-                      onClick={() => setTradeForm({ ...tradeForm, inputType: 'amount' })}
-                    >
-                      Dollar Amount
-                    </Button>
-                    <Button
                       variant={tradeForm.inputType === 'shares' ? 'primary' : 'light'}
                       size="sm"
-                      className="flex-fill ms-1"
+                      className="flex-fill me-1"
                       style={{
                         borderRadius: '6px',
                         fontWeight: '500',
@@ -593,12 +580,49 @@ const PortfolioDetailComponent: React.FC = () => {
                     >
                       Number of Shares
                     </Button>
+                    <Button
+                      variant={tradeForm.inputType === 'amount' ? 'primary' : 'light'}
+                      size="sm"
+                      className="flex-fill ms-1"
+                      style={{
+                        borderRadius: '6px',
+                        fontWeight: '500',
+                        fontSize: '14px'
+                      }}
+                      onClick={() => setTradeForm({ ...tradeForm, inputType: 'amount' })}
+                    >
+                      Dollar Amount
+                    </Button>
                   </div>
                 </div>
 
                 {/* Large Input Field - Dollar Amount or Shares */}
                 <div className="mb-4">
-                  {tradeForm.inputType === 'amount' ? (
+                  {tradeForm.inputType === 'shares' ? (
+                    <div className="d-flex align-items-center" style={{ fontSize: '28px', fontWeight: '600' }}>
+                      <Form.Control
+                        type="number"
+                        value={tradeForm.shares}
+                        onChange={(e) => setTradeForm({ ...tradeForm, shares: e.target.value })}
+                        placeholder="0"
+                        style={{
+                          fontSize: '28px',
+                          fontWeight: '600',
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          outline: 'none',
+                          boxShadow: 'none',
+                          padding: '0',
+                          borderBottom: '2px solid #dee2e6',
+                          textAlign: 'right'
+                        }}
+                        min="1"
+                      />
+                      <span className="ms-3 text-muted" style={{ fontSize: '16px' }}>
+                        shares
+                      </span>
+                    </div>
+                  ) : (
                     <div className="input-group" style={{ fontSize: '28px', fontWeight: '600' }}>
                       <span className="input-group-text" style={{
                         fontSize: '28px',
@@ -628,30 +652,6 @@ const PortfolioDetailComponent: React.FC = () => {
                         min="0"
                       />
                     </div>
-                  ) : (
-                    <div className="d-flex align-items-center" style={{ fontSize: '28px', fontWeight: '600' }}>
-                      <Form.Control
-                        type="number"
-                        value={tradeForm.shares}
-                        onChange={(e) => setTradeForm({ ...tradeForm, shares: e.target.value })}
-                        placeholder="0"
-                        style={{
-                          fontSize: '28px',
-                          fontWeight: '600',
-                          border: 'none',
-                          backgroundColor: 'transparent',
-                          outline: 'none',
-                          boxShadow: 'none',
-                          padding: '0',
-                          borderBottom: '2px solid #dee2e6',
-                          textAlign: 'right'
-                        }}
-                        min="1"
-                      />
-                      <span className="ms-3 text-muted" style={{ fontSize: '16px' }}>
-                        shares
-                      </span>
-                    </div>
                   )}
                 </div>
 
@@ -678,25 +678,10 @@ const PortfolioDetailComponent: React.FC = () => {
                 )}
 
                 {/* Trade Summary */}
-                {selectedStock && ((tradeForm.inputType === 'amount' && tradeForm.amount) ||
-                  (tradeForm.inputType === 'shares' && tradeForm.shares)) && (
+                {selectedStock && ((tradeForm.inputType === 'shares' && tradeForm.shares) ||
+                  (tradeForm.inputType === 'amount' && tradeForm.amount)) && (
                     <Alert variant="light" className="mb-3" style={{ backgroundColor: '#f8f9fa', border: '1px solid #e9ecef' }}>
-                      {tradeForm.inputType === 'amount' ? (
-                        <>
-                          <div className="d-flex justify-content-between">
-                            <span style={{ fontSize: '12px' }}>Estimated shares:</span>
-                            <span style={{ fontWeight: '600', fontSize: '12px' }}>
-                              {Math.floor(parseFloat(tradeForm.amount) / selectedStock.current_price)} shares
-                            </span>
-                          </div>
-                          <div className="d-flex justify-content-between">
-                            <span style={{ fontSize: '12px' }}>Total cost:</span>
-                            <span style={{ fontWeight: '600', fontSize: '12px' }}>
-                              {formatCurrency(Math.floor(parseFloat(tradeForm.amount) / selectedStock.current_price) * selectedStock.current_price)}
-                            </span>
-                          </div>
-                        </>
-                      ) : (
+                      {tradeForm.inputType === 'shares' ? (
                         <>
                           <div className="d-flex justify-content-between">
                             <span style={{ fontSize: '12px' }}>Shares to {tradeType.toLowerCase()}:</span>
@@ -708,6 +693,21 @@ const PortfolioDetailComponent: React.FC = () => {
                             <span style={{ fontSize: '12px' }}>Total {tradeType === 'BUY' ? 'cost' : 'proceeds'}:</span>
                             <span style={{ fontWeight: '600', fontSize: '12px' }}>
                               {formatCurrency(parseInt(tradeForm.shares) * selectedStock.current_price)}
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="d-flex justify-content-between">
+                            <span style={{ fontSize: '12px' }}>Estimated shares:</span>
+                            <span style={{ fontWeight: '600', fontSize: '12px' }}>
+                              {Math.floor(parseFloat(tradeForm.amount) / selectedStock.current_price)} shares
+                            </span>
+                          </div>
+                          <div className="d-flex justify-content-between">
+                            <span style={{ fontSize: '12px' }}>Total cost:</span>
+                            <span style={{ fontWeight: '600', fontSize: '12px' }}>
+                              {formatCurrency(Math.floor(parseFloat(tradeForm.amount) / selectedStock.current_price) * selectedStock.current_price)}
                             </span>
                           </div>
                         </>
@@ -737,8 +737,8 @@ const PortfolioDetailComponent: React.FC = () => {
                   disabled={
                     tradeLoading ||
                     !tradeForm.selectedStock ||
-                    (tradeForm.inputType === 'amount' && !tradeForm.amount) ||
-                    (tradeForm.inputType === 'shares' && !tradeForm.shares)
+                    (tradeForm.inputType === 'shares' && !tradeForm.shares) ||
+                    (tradeForm.inputType === 'amount' && !tradeForm.amount)
                   }
                   style={{
                     padding: '12px',
@@ -855,7 +855,7 @@ const PortfolioDetailComponent: React.FC = () => {
               {deleteError}
             </Alert>
           )}
-          
+
           <Alert variant="warning" className="mb-4">
             <Alert.Heading>⚠️ Permanent Action</Alert.Heading>
             <p>
@@ -870,7 +870,7 @@ const PortfolioDetailComponent: React.FC = () => {
               This action <strong>cannot be undone</strong>. All portfolio data, holdings, and transaction history will be lost.
             </p>
           </Alert>
-          
+
           <Form.Group className="mb-3">
             <Form.Label>
               To confirm deletion, please type the portfolio name: <strong>{portfolioDetail?.portfolio.name}</strong>
@@ -911,15 +911,15 @@ const PortfolioDetailComponent: React.FC = () => {
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             onClick={closeDeleteModal}
             disabled={deleteLoading}
           >
             Cancel
           </Button>
-          <Button 
-            variant="danger" 
+          <Button
+            variant="danger"
             onClick={handleDeletePortfolio}
             disabled={deleteLoading || deleteConfirmName !== portfolioDetail?.portfolio.name}
           >

@@ -137,7 +137,7 @@ const StockDetailComponent: React.FC = () => {
     amount: '',
     shares: '',
     selectedStock: symbol || '',
-    inputType: 'amount' as 'amount' | 'shares'
+    inputType: 'shares' as 'amount' | 'shares'
   });
 
   useEffect(() => {
@@ -187,19 +187,7 @@ const StockDetailComponent: React.FC = () => {
     let totalAmount = 0;
 
     // Calculate quantity and amount based on input type
-    if (tradeForm.inputType === 'amount') {
-      if (!tradeForm.amount) {
-        setTradeError('Please enter an amount');
-        return;
-      }
-      totalAmount = parseFloat(tradeForm.amount);
-      quantity = Math.floor(totalAmount / currentPrice);
-
-      if (quantity <= 0) {
-        setTradeError('Amount must be sufficient to buy at least 1 share');
-        return;
-      }
-    } else {
+    if (tradeForm.inputType === 'shares') {
       if (!tradeForm.shares) {
         setTradeError('Please enter number of shares');
         return;
@@ -209,6 +197,18 @@ const StockDetailComponent: React.FC = () => {
 
       if (quantity <= 0) {
         setTradeError('Number of shares must be greater than 0');
+        return;
+      }
+    } else {
+      if (!tradeForm.amount) {
+        setTradeError('Please enter an amount');
+        return;
+      }
+      totalAmount = parseFloat(tradeForm.amount);
+      quantity = Math.floor(totalAmount / currentPrice);
+
+      if (quantity <= 0) {
+        setTradeError('Amount must be sufficient to buy at least 1 share');
         return;
       }
     }
@@ -255,7 +255,7 @@ const StockDetailComponent: React.FC = () => {
         amount: '',
         shares: '',
         selectedStock: symbol,
-        inputType: 'amount'
+        inputType: 'shares'
       });
     } catch (err: any) {
       setTradeError(err.response?.data?.error || `Failed to ${tradeType.toLowerCase()} stock`);
@@ -421,22 +421,9 @@ const StockDetailComponent: React.FC = () => {
                 <div className="mb-3">
                   <div className="d-flex border rounded p-1" style={{ backgroundColor: '#f8f9fa' }}>
                     <Button
-                      variant={tradeForm.inputType === 'amount' ? 'primary' : 'light'}
-                      size="sm"
-                      className="flex-fill me-1"
-                      style={{
-                        borderRadius: '6px',
-                        fontWeight: '500',
-                        fontSize: '14px'
-                      }}
-                      onClick={() => setTradeForm({ ...tradeForm, inputType: 'amount' })}
-                    >
-                      Dollar Amount
-                    </Button>
-                    <Button
                       variant={tradeForm.inputType === 'shares' ? 'primary' : 'light'}
                       size="sm"
-                      className="flex-fill ms-1"
+                      className="flex-fill me-1"
                       style={{
                         borderRadius: '6px',
                         fontWeight: '500',
@@ -446,12 +433,49 @@ const StockDetailComponent: React.FC = () => {
                     >
                       Number of Shares
                     </Button>
+                    <Button
+                      variant={tradeForm.inputType === 'amount' ? 'primary' : 'light'}
+                      size="sm"
+                      className="flex-fill ms-1"
+                      style={{
+                        borderRadius: '6px',
+                        fontWeight: '500',
+                        fontSize: '14px'
+                      }}
+                      onClick={() => setTradeForm({ ...tradeForm, inputType: 'amount' })}
+                    >
+                      Dollar Amount
+                    </Button>
                   </div>
                 </div>
 
                 {/* Large Input Field - Dollar Amount or Shares */}
                 <div className="mb-4">
-                  {tradeForm.inputType === 'amount' ? (
+                  {tradeForm.inputType === 'shares' ? (
+                    <div className="d-flex align-items-center" style={{ fontSize: '28px', fontWeight: '600' }}>
+                      <Form.Control
+                        type="number"
+                        value={tradeForm.shares}
+                        onChange={(e) => setTradeForm({ ...tradeForm, shares: e.target.value })}
+                        placeholder="0"
+                        style={{
+                          fontSize: '28px',
+                          fontWeight: '600',
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          outline: 'none',
+                          boxShadow: 'none',
+                          padding: '0',
+                          borderBottom: '2px solid #dee2e6',
+                          textAlign: 'right'
+                        }}
+                        min="1"
+                      />
+                      <span className="ms-3 text-muted" style={{ fontSize: '16px' }}>
+                        shares
+                      </span>
+                    </div>
+                  ) : (
                     <div className="input-group" style={{ fontSize: '28px', fontWeight: '600' }}>
                       <span className="input-group-text" style={{
                         fontSize: '28px',
@@ -480,30 +504,6 @@ const StockDetailComponent: React.FC = () => {
                         }}
                         min="0"
                       />
-                    </div>
-                  ) : (
-                    <div className="d-flex align-items-center" style={{ fontSize: '28px', fontWeight: '600' }}>
-                      <Form.Control
-                        type="number"
-                        value={tradeForm.shares}
-                        onChange={(e) => setTradeForm({ ...tradeForm, shares: e.target.value })}
-                        placeholder="0"
-                        style={{
-                          fontSize: '28px',
-                          fontWeight: '600',
-                          border: 'none',
-                          backgroundColor: 'transparent',
-                          outline: 'none',
-                          boxShadow: 'none',
-                          padding: '0',
-                          borderBottom: '2px solid #dee2e6',
-                          textAlign: 'right'
-                        }}
-                        min="1"
-                      />
-                      <span className="ms-3 text-muted" style={{ fontSize: '16px' }}>
-                        shares
-                      </span>
                     </div>
                   )}
                 </div>
@@ -560,25 +560,10 @@ const StockDetailComponent: React.FC = () => {
                 </div>
 
                 {/* Trade Summary */}
-                {((tradeForm.inputType === 'amount' && tradeForm.amount) ||
-                  (tradeForm.inputType === 'shares' && tradeForm.shares)) && (
+                {((tradeForm.inputType === 'shares' && tradeForm.shares) ||
+                  (tradeForm.inputType === 'amount' && tradeForm.amount)) && (
                     <Alert variant="light" className="mb-3" style={{ backgroundColor: '#f8f9fa', border: '1px solid #e9ecef' }}>
-                      {tradeForm.inputType === 'amount' ? (
-                        <>
-                          <div className="d-flex justify-content-between">
-                            <span style={{ fontSize: '12px' }}>Estimated shares:</span>
-                            <span style={{ fontWeight: '600', fontSize: '12px' }}>
-                              {Math.floor(parseFloat(tradeForm.amount) / stockDetail.stock.current_price)} shares
-                            </span>
-                          </div>
-                          <div className="d-flex justify-content-between">
-                            <span style={{ fontSize: '12px' }}>Total cost:</span>
-                            <span style={{ fontWeight: '600', fontSize: '12px' }}>
-                              {formatCurrency(Math.floor(parseFloat(tradeForm.amount) / stockDetail.stock.current_price) * stockDetail.stock.current_price)}
-                            </span>
-                          </div>
-                        </>
-                      ) : (
+                      {tradeForm.inputType === 'shares' ? (
                         <>
                           <div className="d-flex justify-content-between">
                             <span style={{ fontSize: '12px' }}>Shares to {tradeType.toLowerCase()}:</span>
@@ -590,6 +575,21 @@ const StockDetailComponent: React.FC = () => {
                             <span style={{ fontSize: '12px' }}>Total {tradeType === 'BUY' ? 'cost' : 'proceeds'}:</span>
                             <span style={{ fontWeight: '600', fontSize: '12px' }}>
                               {formatCurrency(parseInt(tradeForm.shares) * stockDetail.stock.current_price)}
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="d-flex justify-content-between">
+                            <span style={{ fontSize: '12px' }}>Estimated shares:</span>
+                            <span style={{ fontWeight: '600', fontSize: '12px' }}>
+                              {Math.floor(parseFloat(tradeForm.amount) / stockDetail.stock.current_price)} shares
+                            </span>
+                          </div>
+                          <div className="d-flex justify-content-between">
+                            <span style={{ fontSize: '12px' }}>Total cost:</span>
+                            <span style={{ fontWeight: '600', fontSize: '12px' }}>
+                              {formatCurrency(Math.floor(parseFloat(tradeForm.amount) / stockDetail.stock.current_price) * stockDetail.stock.current_price)}
                             </span>
                           </div>
                         </>
@@ -619,8 +619,8 @@ const StockDetailComponent: React.FC = () => {
                   disabled={
                     tradeLoading ||
                     !tradeForm.portfolio_id ||
-                    (tradeForm.inputType === 'amount' && !tradeForm.amount) ||
-                    (tradeForm.inputType === 'shares' && !tradeForm.shares)
+                    (tradeForm.inputType === 'shares' && !tradeForm.shares) ||
+                    (tradeForm.inputType === 'amount' && !tradeForm.amount)
                   }
                   style={{
                     padding: '12px',

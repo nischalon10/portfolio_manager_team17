@@ -223,7 +223,8 @@ def get_stock_detail(symbol):
     cursor = conn.cursor()
 
     # Get stock info
-    cursor.execute('SELECT id, symbol, name, current_price, watchlist FROM stocks WHERE symbol = %s', (symbol.upper(),))
+    cursor.execute(
+        'SELECT id, symbol, name, current_price, watchlist FROM stocks WHERE symbol = %s', (symbol.upper(),))
     stock = cursor.fetchone()
 
     if not stock:
@@ -286,6 +287,62 @@ def get_stock_detail(symbol):
     })
 
 
+@app.route('/api/stocks/<string:symbol>/market-data', methods=['GET'])
+def get_stock_market_data(symbol):
+    """Get market data for a stock including daily change percentage"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Get current price from database
+        cursor.execute(
+            'SELECT current_price FROM stocks WHERE symbol = %s', (symbol.upper(),))
+        result = cursor.fetchone()
+
+        if not result:
+            conn.close()
+            return jsonify({'error': 'Stock not found'}), 404
+
+        current_price = float(result[0])
+
+        # Use yfinance to get the previous close to calculate daily change
+        try:
+            stock_info = yf.Ticker(symbol.upper())
+            hist = stock_info.history(period="2d")
+
+            if len(hist) >= 1:
+                previous_close = float(
+                    hist['Close'].iloc[-2]) if len(hist) >= 2 else float(hist['Close'].iloc[-1])
+                daily_change = current_price - previous_close
+                daily_change_percentage = (
+                    daily_change / previous_close) * 100 if previous_close > 0 else 0
+            else:
+                # Fallback if yfinance fails
+                previous_close = current_price
+                daily_change = 0
+                daily_change_percentage = 0
+
+        except Exception as e:
+            print(f"Error fetching historical data for {symbol}: {e}")
+            # Fallback values
+            previous_close = current_price
+            daily_change = 0
+            daily_change_percentage = 0
+
+        conn.close()
+
+        return jsonify({
+            'symbol': symbol.upper(),
+            'current_price': current_price,
+            'previous_close_price': previous_close,
+            'daily_change': daily_change,
+            'daily_change_percentage': daily_change_percentage
+        })
+
+    except Exception as e:
+        return jsonify({'error': f'Failed to fetch market data: {str(e)}'}), 500
+
+
 @app.route('/api/stocks/<string:symbol>/buy', methods=['POST'])
 def buy_stock(symbol):
     """Handle stock purchase"""
@@ -311,7 +368,8 @@ def buy_stock(symbol):
         cursor = conn.cursor()
 
         # Get stock ID
-        cursor.execute('SELECT id FROM stocks WHERE symbol = %s', (symbol.upper(),))
+        cursor.execute('SELECT id FROM stocks WHERE symbol = %s',
+                       (symbol.upper(),))
         stock = cursor.fetchone()
         if not stock:
             return jsonify({'error': 'Stock not found'}), 404
@@ -392,7 +450,8 @@ def sell_stock(symbol):
         cursor = conn.cursor()
 
         # Get stock ID
-        cursor.execute('SELECT id FROM stocks WHERE symbol = %s', (symbol.upper(),))
+        cursor.execute('SELECT id FROM stocks WHERE symbol = %s',
+                       (symbol.upper(),))
         stock = cursor.fetchone()
         if not stock:
             return jsonify({'error': 'Stock not found'}), 404
@@ -673,7 +732,8 @@ def add_to_watchlist(symbol):
         cursor = conn.cursor()
 
         # Check if stock exists
-        cursor.execute('SELECT id FROM stocks WHERE symbol = %s', (symbol.upper(),))
+        cursor.execute('SELECT id FROM stocks WHERE symbol = %s',
+                       (symbol.upper(),))
         stock = cursor.fetchone()
         if not stock:
             return jsonify({'error': 'Stock not found'}), 404
@@ -684,7 +744,7 @@ def add_to_watchlist(symbol):
             SET watchlist = TRUE 
             WHERE symbol = %s
         ''', (symbol.upper(),))
-        
+
         conn.commit()
         conn.close()
 
@@ -702,7 +762,8 @@ def remove_from_watchlist(symbol):
         cursor = conn.cursor()
 
         # Check if stock exists
-        cursor.execute('SELECT id FROM stocks WHERE symbol = %s', (symbol.upper(),))
+        cursor.execute('SELECT id FROM stocks WHERE symbol = %s',
+                       (symbol.upper(),))
         stock = cursor.fetchone()
         if not stock:
             return jsonify({'error': 'Stock not found'}), 404
@@ -713,7 +774,7 @@ def remove_from_watchlist(symbol):
             SET watchlist = FALSE 
             WHERE symbol = %s
         ''', (symbol.upper(),))
-        
+
         conn.commit()
         conn.close()
 
@@ -727,35 +788,35 @@ def remove_from_watchlist(symbol):
 def create_portfolio():
     """Create a new portfolio"""
     data = request.json
-    
+
     if not data or 'name' not in data:
         return jsonify({'error': 'Portfolio name is required'}), 400
-    
+
     name = data['name'].strip()
     description = data.get('description', '').strip()
-    
+
     if not name:
         return jsonify({'error': 'Portfolio name cannot be empty'}), 400
-    
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     # Check if portfolio with same name already exists
     cursor.execute('SELECT id FROM portfolios WHERE name = %s', (name,))
     if cursor.fetchone():
         conn.close()
         return jsonify({'error': 'Portfolio with this name already exists'}), 409
-    
+
     try:
         cursor.execute('''
             INSERT INTO portfolios (name, description, created_at)
             VALUES (%s, %s, %s)
         ''', (name, description, datetime.now()))
-        
+
         portfolio_id = cursor.lastrowid
         conn.commit()
         conn.close()
-        
+
         return jsonify({
             'message': 'Portfolio created successfully',
             'portfolio': {
@@ -764,7 +825,7 @@ def create_portfolio():
                 'description': description
             }
         }), 201
-        
+
     except pymysql.Error as err:
         conn.rollback()
         conn.close()
@@ -776,31 +837,33 @@ def delete_portfolio(portfolio_id):
     """Delete a portfolio and all its holdings"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     # Check if portfolio exists
-    cursor.execute('SELECT name FROM portfolios WHERE id = %s', (portfolio_id,))
+    cursor.execute('SELECT name FROM portfolios WHERE id = %s',
+                   (portfolio_id,))
     portfolio = cursor.fetchone()
-    
+
     if not portfolio:
         conn.close()
         return jsonify({'error': 'Portfolio not found'}), 404
-    
+
     portfolio_name = portfolio[0]
-    
+
     try:
         # Delete all holdings first (foreign key constraint)
-        cursor.execute('DELETE FROM holdings WHERE portfolio_id = %s', (portfolio_id,))
-        
+        cursor.execute(
+            'DELETE FROM holdings WHERE portfolio_id = %s', (portfolio_id,))
+
         # Delete the portfolio
         cursor.execute('DELETE FROM portfolios WHERE id = %s', (portfolio_id,))
-        
+
         conn.commit()
         conn.close()
-        
+
         return jsonify({
             'message': f'Portfolio "{portfolio_name}" deleted successfully'
         })
-        
+
     except pymysql.Error as err:
         conn.rollback()
         conn.close()

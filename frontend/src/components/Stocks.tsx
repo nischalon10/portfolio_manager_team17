@@ -141,7 +141,7 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
     portfolio_id: '',
     amount: '',
     shares: '',
-    inputType: 'amount' as 'amount' | 'shares'
+    inputType: 'shares' as 'amount' | 'shares'
   });
 
   useEffect(() => {
@@ -228,7 +228,7 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
       portfolio_id: '',
       amount: '',
       shares: '',
-      inputType: 'amount'
+      inputType: 'shares'
     });
   };
 
@@ -250,19 +250,7 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
     let totalAmount = 0;
 
     // Calculate quantity and amount based on input type
-    if (tradeForm.inputType === 'amount') {
-      if (!tradeForm.amount) {
-        setTradeError('Please enter an amount');
-        return;
-      }
-      totalAmount = parseFloat(tradeForm.amount);
-      quantity = Math.floor(totalAmount / currentPrice);
-
-      if (quantity <= 0) {
-        setTradeError('Amount must be sufficient to buy at least 1 share');
-        return;
-      }
-    } else {
+    if (tradeForm.inputType === 'shares') {
       if (!tradeForm.shares) {
         setTradeError('Please enter number of shares');
         return;
@@ -272,6 +260,18 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
 
       if (quantity <= 0) {
         setTradeError('Number of shares must be greater than 0');
+        return;
+      }
+    } else {
+      if (!tradeForm.amount) {
+        setTradeError('Please enter an amount');
+        return;
+      }
+      totalAmount = parseFloat(tradeForm.amount);
+      quantity = Math.floor(totalAmount / currentPrice);
+
+      if (quantity <= 0) {
+        setTradeError('Amount must be sufficient to buy at least 1 share');
         return;
       }
     }
@@ -312,7 +312,7 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
         portfolio_id: '',
         amount: '',
         shares: '',
-        inputType: 'amount'
+        inputType: 'shares'
       });
 
       // Close modal after a delay
@@ -375,92 +375,17 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
                     <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Current Price</th>
                     <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Shares Held</th>
                     <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Value Held</th>
-                    <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Actions</th>
+                    <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Actions</th>       
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredStocks.map((stock, index) => (
-                    <tr 
-                      key={stock.id}
-                      className={index === filteredStocks.length - 1 ? '' : 'border-bottom'}
-                      style={{
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
-                        borderBottomWidth: '1px'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.1)' : '#f8f9fa';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                      }}
-                    >
-                      <td className="border-0 py-3 px-4">
-                        <StockLogo symbol={stock.symbol} name={stock.name} size={40} />
-                      </td>
-                      <td className="border-0 py-3">
-                        <Link to={`/stock/${stock.symbol}`} className="text-decoration-none">
-                          <strong className="text-primary" style={{ fontSize: '15px' }}>{stock.symbol}</strong>
-                        </Link>
-                      </td>
-                      <td className="border-0 py-3">
-                        <span style={{ fontSize: '14px', color: isDarkMode ? '#fff' : 'inherit' }}>{stock.name}</span>
-                      </td>
-                      <td className="border-0 py-3">
-                        <span className="fw-bold text-success" style={{ fontSize: '15px' }}>
-                          {formatCurrency(stock.current_price)}
-                        </span>
-                      </td>
-                      <td className="border-0 py-3">
-                        <span style={{ fontSize: '14px', color: isDarkMode ? '#fff' : 'inherit' }}>{stock.total_shares_held}</span>
-                      </td>
-                      <td className={`border-0 py-3 ${stock.total_value_held > 0 ? 'text-success fw-bold' : ''}`}>
-                        <span style={{ fontSize: '14px', color: stock.total_value_held > 0 ? 'inherit' : (isDarkMode ? '#fff' : 'inherit') }}>
-                          {formatCurrency(stock.total_value_held)}
-                        </span>
-                      </td>
-                      <td className="border-0 py-3">
-                        <div className="d-flex gap-1">
-                          <Button
-                            size="sm"
-                            variant="success"
-                            onClick={() => openTradeModal(stock, 'BUY')}
-                            style={{
-                              borderRadius: '16px',
-                              fontSize: '12px',
-                              fontWeight: '600',
-                              padding: '6px 16px'
-                            }}
-                          >
-                            Buy
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            onClick={() => openTradeModal(stock, 'SELL')}
-                            disabled={stock.total_shares_held === 0}
-                            style={{
-                              borderRadius: '16px',
-                              fontSize: '12px',
-                              fontWeight: '600',
-                              padding: '6px 16px'
-                            }}
-                          >
-                            Sell
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            </div>
-          )}
-        </div>
+                ))}
+              </tbody>
+            </Table>
+          </div>
+        )}
+      </div>
 
-        {/* Quick Trade Modal */}
-        <Modal show={showTradeModal} onHide={closeTradeModal} size="lg">
+      {/* Quick Trade Modal */}
+      <Modal show={showTradeModal} onHide={closeTradeModal} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>
             {tradeType} {selectedStock?.symbol} - {selectedStock?.name}
@@ -517,16 +442,16 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
                   <Form.Label>Input Type</Form.Label>
                   <ButtonGroup className="w-100">
                     <Button
-                      variant={tradeForm.inputType === 'amount' ? 'primary' : 'outline-primary'}
-                      onClick={() => setTradeForm({ ...tradeForm, inputType: 'amount' })}
-                    >
-                      Dollar Amount
-                    </Button>
-                    <Button
                       variant={tradeForm.inputType === 'shares' ? 'primary' : 'outline-primary'}
                       onClick={() => setTradeForm({ ...tradeForm, inputType: 'shares' })}
                     >
                       Number of Shares
+                    </Button>
+                    <Button
+                      variant={tradeForm.inputType === 'amount' ? 'primary' : 'outline-primary'}
+                      onClick={() => setTradeForm({ ...tradeForm, inputType: 'amount' })}
+                    >
+                      Dollar Amount
                     </Button>
                   </ButtonGroup>
                 </Col>
@@ -535,7 +460,18 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
               {/* Trade Form */}
               <Row className="mb-3">
                 <Col md={6}>
-                  {tradeForm.inputType === 'amount' ? (
+                  {tradeForm.inputType === 'shares' ? (
+                    <Form.Group>
+                      <Form.Label>Number of Shares</Form.Label>
+                      <Form.Control
+                        type="number"
+                        value={tradeForm.shares}
+                        onChange={(e) => setTradeForm({ ...tradeForm, shares: e.target.value })}
+                        placeholder="Enter number of shares"
+                        min="1"
+                      />
+                    </Form.Group>
+                  ) : (
                     <Form.Group>
                       <Form.Label>Amount ($)</Form.Label>
                       <Form.Control
@@ -545,17 +481,6 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
                         onChange={(e) => setTradeForm({ ...tradeForm, amount: e.target.value })}
                         placeholder="Enter dollar amount"
                         min="0"
-                      />
-                    </Form.Group>
-                  ) : (
-                    <Form.Group>
-                      <Form.Label>Number of Shares</Form.Label>
-                      <Form.Control
-                        type="number"
-                        value={tradeForm.shares}
-                        onChange={(e) => setTradeForm({ ...tradeForm, shares: e.target.value })}
-                        placeholder="Enter number of shares"
-                        min="1"
                       />
                     </Form.Group>
                   )}
@@ -579,19 +504,19 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
               </Row>
 
               {/* Trade Summary */}
-              {((tradeForm.inputType === 'amount' && tradeForm.amount) ||
-                (tradeForm.inputType === 'shares' && tradeForm.shares)) && (
+              {((tradeForm.inputType === 'shares' && tradeForm.shares) ||
+                (tradeForm.inputType === 'amount' && tradeForm.amount)) && (
                   <Alert variant="light" className="mb-3">
                     <h6>Trade Summary:</h6>
-                    {tradeForm.inputType === 'amount' ? (
-                      <>
-                        <div>Estimated shares: {Math.floor(parseFloat(tradeForm.amount) / selectedStock.current_price)}</div>
-                        <div>Total cost: {formatCurrency(Math.floor(parseFloat(tradeForm.amount) / selectedStock.current_price) * selectedStock.current_price)}</div>
-                      </>
-                    ) : (
+                    {tradeForm.inputType === 'shares' ? (
                       <>
                         <div>Shares to {tradeType.toLowerCase()}: {tradeForm.shares}</div>
                         <div>Total {tradeType === 'BUY' ? 'cost' : 'proceeds'}: {formatCurrency(parseInt(tradeForm.shares) * selectedStock.current_price)}</div>
+                      </>
+                    ) : (
+                      <>
+                        <div>Estimated shares: {Math.floor(parseFloat(tradeForm.amount) / selectedStock.current_price)}</div>
+                        <div>Total cost: {formatCurrency(Math.floor(parseFloat(tradeForm.amount) / selectedStock.current_price) * selectedStock.current_price)}</div>
                       </>
                     )}
                   </Alert>

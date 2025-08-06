@@ -121,32 +121,44 @@ const Dashboard: React.FC = () => {
 
         setPortfoliosWithPL(portfolioDetails);
 
-        // Calculate P&L percentage for each stock if they have holdings
-        const watchlistWithPnL = watchlist.map((stock) => {
-          let profit_loss_percentage = undefined;
+        // Get watchlist stocks with real daily market changes
+        const watchlistWithMarketChanges = await Promise.all(
+          watchlist.map(async (stock) => {
+            try {
+              // Fetch real market data for daily changes from our backend
+              const response = await fetch(`http://localhost:5001/api/stocks/${stock.symbol}/market-data`);
 
-          if (
-            stock.total_shares_held > 0 &&
-            stock.total_cost_basis &&
-            stock.total_cost_basis > 0
-          ) {
-            // Calculate average cost basis from original purchase prices
-            const avgCostBasis =
-              stock.total_cost_basis / stock.total_shares_held;
-            const currentValue = stock.current_price;
+              if (response.ok) {
+                const marketData = await response.json();
 
-            // Calculate P&L percentage: ((current_price - avg_cost) / avg_cost) * 100
-            profit_loss_percentage =
-              ((currentValue - avgCostBasis) / avgCostBasis) * 100;
-          }
+                return {
+                  ...stock,
+                  daily_change_percentage: marketData.daily_change_percentage,
+                  previous_close_price: marketData.previous_close_price,
+                  current_price: marketData.current_price, // Update with real-time price
+                };
+              } else {
+                console.error(`Failed to fetch market data for ${stock.symbol}:`, response.statusText);
 
-          return {
-            ...stock,
-            profit_loss_percentage,
-          };
-        });
+                // Fallback: keep original stock data but without daily change
+                return {
+                  ...stock,
+                  daily_change_percentage: undefined,
+                };
+              }
+            } catch (error) {
+              console.error(`Failed to fetch market data for ${stock.symbol}:`, error);
 
-        setWatchlistStocks(watchlistWithPnL);
+              // Fallback: keep original stock data but without daily change
+              return {
+                ...stock,
+                daily_change_percentage: undefined,
+              };
+            }
+          })
+        );
+
+        setWatchlistStocks(watchlistWithMarketChanges);
       } catch (err) {
         setError("Failed to fetch dashboard data");
         console.error(err);
@@ -250,11 +262,11 @@ const Dashboard: React.FC = () => {
       <Row>
         {/* Left Column - Watchlist */}
         <Col lg={3}>
-          
+
           <Card style={{ position: "sticky", top: "20px" }}>
-              <Card.Header>
-                <h5 className="mb-0">👀 My Watchlist</h5>
-              </Card.Header>
+            <Card.Header>
+              <h5 className="mb-0">👀 My Watchlist</h5>
+            </Card.Header>
             <Card.Body
               className="hide-scrollbar"
               style={{
@@ -327,27 +339,27 @@ const Dashboard: React.FC = () => {
                           </div>
                         </td>
                         <td className="text-end">
-                          {stock.profit_loss_percentage !== undefined ? (
+                          {stock.daily_change_percentage !== undefined ? (
                             <div
                               className="small"
                               style={{
                                 color:
-                                  stock.profit_loss_percentage >= 0
+                                  stock.daily_change_percentage >= 0
                                     ? "green"
                                     : "red",
                                 fontWeight: "bold",
                                 fontSize: "1rem",
                               }}
                             >
-                              {stock.profit_loss_percentage >= 0 ? "+" : ""}
-                              {stock.profit_loss_percentage.toFixed(2)}%
+                              {stock.daily_change_percentage >= 0 ? "+" : ""}
+                              {stock.daily_change_percentage.toFixed(2)}%
                             </div>
                           ) : (
                             <div
                               className="small text-muted"
                               style={{ fontSize: "0.8rem" }}
                             >
-                              No holdings
+                              Loading...
                             </div>
                           )}
                           <div className="fw-bold">
@@ -414,7 +426,7 @@ const Dashboard: React.FC = () => {
                     >
                       <Card.Header
                         className="px-3 py-2"
-                        style={{ 
+                        style={{
                           position: "relative",
                           backgroundColor: isDarkMode ? "#2d2d2d" : "#f8f9fa",
                           borderBottom: isDarkMode ? "1px solid #404040" : "1px solid #e9ecef",
@@ -422,7 +434,7 @@ const Dashboard: React.FC = () => {
                       >
                         <div className="d-flex justify-content-between align-items-center">
                           <h6 className={`mb-0 fw-bold ${isDarkMode ? 'text-info' : 'text-primary'}`}>{portfolio.name}</h6>
-                          
+
                           {/* Top 5 Stock Icons */}
                           <div className="d-flex align-items-center">
                             {portfolio.top_stocks && portfolio.top_stocks.length > 0 ? (
@@ -453,7 +465,7 @@ const Dashboard: React.FC = () => {
                           </div>
                         </div>
                       </Card.Header>
-                      
+
                       <Card.Body className="p-3" style={{ height: "130px" }}>
                         <div className="d-flex h-100 align-items-center">
                           {/* Left Side - Mini Chart */}
@@ -471,9 +483,9 @@ const Dashboard: React.FC = () => {
                               </AreaChart>
                             </ResponsiveContainer>
                           </div>
-                          
+
                           {/* Right Side - Portfolio Info */}
-                          <div 
+                          <div
                             className="d-flex flex-column justify-content-between h-100"
                             style={{ width: "60%", paddingLeft: "20px" }}
                           >
@@ -486,7 +498,7 @@ const Dashboard: React.FC = () => {
                                 {formatCurrency(portfolio.total_value)}
                               </div>
                             </div>
-                            
+
                             {/* Holdings Count and P&L */}
                             <div className="d-flex justify-content-between align-items-end">
                               <div>
@@ -497,7 +509,7 @@ const Dashboard: React.FC = () => {
                                   {portfolio.holdings_count} stocks
                                 </div>
                               </div>
-                              
+
                               {portfolio.profit_loss_percentage !== undefined && (
                                 <div className="text-end">
                                   <small className={`d-block ${isDarkMode ? 'text-light' : 'text-muted'}`} style={{ fontSize: "0.75rem" }}>
@@ -533,11 +545,11 @@ const Dashboard: React.FC = () => {
           <div style={{ position: "sticky", top: "20px" }}>
             {/* Net Worth Chart */}
             <Card className="mb-4">
-            <Card.Header>
-              <div className="d-flex justify-content-between align-items-center">
-                <h5 className="mb-0">📈 My Networth</h5>
-              </div>
-            </Card.Header>
+              <Card.Header>
+                <div className="d-flex justify-content-between align-items-center">
+                  <h5 className="mb-0">📈 My Networth</h5>
+                </div>
+              </Card.Header>
               <Card.Body style={{ padding: "8px" }}>
                 <div className="d-flex gap-2 justify-content-center">
                   <button
@@ -611,8 +623,8 @@ const Dashboard: React.FC = () => {
                   </button>
                 </div>
                 <ResponsiveContainer width="100%" height={220}>
-                  <AreaChart 
-                    data={netWorthHistory} 
+                  <AreaChart
+                    data={netWorthHistory}
                     margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#404040" : "#f0f0f0"} strokeOpacity={0.5} />
@@ -632,7 +644,7 @@ const Dashboard: React.FC = () => {
                       }}
                     />
                     <YAxis hide />
-                    
+
                     {/* Custom Tooltip that updates our state */}
                     <Tooltip
                       content={({ active, payload, label }) => {
@@ -693,26 +705,26 @@ const Dashboard: React.FC = () => {
                     {/* Define gradients */}
                     <defs>
                       <linearGradient id="colorNetWorth" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#8884d8" stopOpacity={0.1}/>
+                        <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#8884d8" stopOpacity={0.1} />
                       </linearGradient>
                       <linearGradient id="colorPortfolio" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#82ca9d" stopOpacity={0.1}/>
+                        <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#82ca9d" stopOpacity={0.1} />
                       </linearGradient>
                       <linearGradient id="colorAccount" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ffc658" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#ffc658" stopOpacity={0.1}/>
+                        <stop offset="5%" stopColor="#ffc658" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#ffc658" stopOpacity={0.1} />
                       </linearGradient>
                     </defs>
                   </AreaChart>
                 </ResponsiveContainer>
-                
+
                 {/* Data Display Below Chart */}
-                <div 
-                  style={{ 
-                    padding: "8px 12px", 
-                    backgroundColor: isDarkMode ? "#2d2d2d" : "#f8f9fa", 
+                <div
+                  style={{
+                    padding: "8px 12px",
+                    backgroundColor: isDarkMode ? "#2d2d2d" : "#f8f9fa",
                     borderTop: isDarkMode ? "1px solid #404040" : "1px solid #e9ecef",
                     minHeight: "60px",
                     display: "flex",
@@ -724,9 +736,9 @@ const Dashboard: React.FC = () => {
                       <div className="text-center" style={{ minWidth: "60px" }}>
                         <small className="text-muted d-block" style={{ fontSize: "0.7rem" }}>Date</small>
                         <div className="fw-bold" style={{ fontSize: "0.8rem", fontFamily: "monospace" }}>
-                          {new Date(hoveredData.date).toLocaleDateString('en-US', { 
-                            month: '2-digit', 
-                            day: '2-digit' 
+                          {new Date(hoveredData.date).toLocaleDateString('en-US', {
+                            month: '2-digit',
+                            day: '2-digit'
                           })}
                         </div>
                       </div>
