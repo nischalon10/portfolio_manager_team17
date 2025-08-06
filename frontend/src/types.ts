@@ -6,6 +6,8 @@ export interface Portfolio {
   description: string;
   holdings_count: number;
   total_value: number;
+  profit_loss: number;
+  profit_loss_percentage: number;
 }
 
 export interface Stock {

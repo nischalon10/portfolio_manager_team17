@@ -11,6 +11,8 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [watchlistStocks, setWatchlistStocks] = useState<Stock[]>([]);
+  const [portfoliosWithPL, setPortfoliosWithPL] = useState<any[]>([]);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -22,6 +24,44 @@ const Dashboard: React.FC = () => {
         ]);
         setDashboardData(dashboard);
         setNetWorthHistory(history);
+        
+        // Get detailed portfolio data for P&L calculation
+        const portfoliosWithHoldings = dashboard.portfolios.filter(p => p.holdings_count > 0);
+        const portfolioDetails = await Promise.all(
+          portfoliosWithHoldings.map(async (portfolio) => {
+            try {
+              const detail = await portfolioAPI.getPortfolioDetail(portfolio.id);
+              
+              // Calculate total P&L for this portfolio
+              let totalProfitLoss = 0;
+              let totalCostBasis = 0;
+              let totalCurrentValue = 0;
+              
+              detail.holdings.forEach(holding => {
+                const costBasis = holding.quantity * holding.avg_buy_price;
+                const currentValue = holding.current_value;
+                const profitLoss = currentValue - costBasis;
+                
+                totalProfitLoss += profitLoss;
+                totalCostBasis += costBasis;
+                totalCurrentValue += currentValue;
+              });
+              
+              const profitLossPercentage = totalCostBasis > 0 ? (totalProfitLoss / totalCostBasis) * 100 : 0;
+              
+              return {
+                ...portfolio,
+                profit_loss: totalProfitLoss,
+                profit_loss_percentage: profitLossPercentage
+              };
+            } catch (err) {
+              console.error(`Error fetching portfolio ${portfolio.id}:`, err);
+              return portfolio; // Return original portfolio if detail fetch fails
+            }
+          })
+        );
+        
+        setPortfoliosWithPL(portfolioDetails);
         
         // Calculate P&L percentage for each stock if they have holdings
         const watchlistWithPnL = watchlist.map(stock => {
@@ -188,21 +228,22 @@ const Dashboard: React.FC = () => {
       <ResponsiveContainer width="100%" height={300}>
         <AreaChart data={netWorthHistory}>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis 
-            dataKey="timestamp"
-            tickFormatter={(value, index) => {
-              const dataLength = netWorthHistory.length;
-              
-              if (index === 0) return "1 Day";
-              else if (index < dataLength / 6) return "2 Days";
-              else if (index < (2 * dataLength) / 6) return "5 Days";
-              else if (index < (3 * dataLength) / 6) return "10 Days";
-              else if (index < (4 * dataLength) / 6) return "15 Days";
-              else return "1M";
-            }}
-            interval="preserveStartEnd"
-            tick={{ fontSize: 10 }}
-          />
+          <XAxis
+  dataKey="timestamp"
+  interval={0}
+  ticks={[
+    netWorthHistory[0]?.timestamp,
+    netWorthHistory[Math.floor(netWorthHistory.length / 6)]?.timestamp,
+    netWorthHistory[Math.floor((2 * netWorthHistory.length) / 6)]?.timestamp,
+    netWorthHistory[Math.floor((3 * netWorthHistory.length) / 6)]?.timestamp,
+    netWorthHistory[Math.floor((4 * netWorthHistory.length) / 6)]?.timestamp,
+    netWorthHistory[netWorthHistory.length - 1]?.timestamp,
+  ]}
+  tickFormatter={(value, index) =>
+    ["1 Day", "2 Days", "5 Days", "10 Days", "15 Days", "1M"][index] || ""
+  }
+  tick={{ fontSize: 10 }}
+/>
           <YAxis />
           <Tooltip formatter={(value: number) => formatCurrency(value)} />
           <Legend />
@@ -330,51 +371,108 @@ const Dashboard: React.FC = () => {
 
       </Row>
 
-      {/* Portfolio Tiles */}
-      <Row className="justify-content-center">
-
-       {/* Aggressive Growth Portfolio Tile */}
-        <Col xs={12} sm={6} md={4} lg={3}>
-          <Card className="mb-4 text-center" style={{ minHeight: '180px', maxWidth: '250px', borderRadius: '16px', marginLeft: '0' }}>
-            <Card.Header>
-              <h5>Aggressive Growth Portfolio</h5>
+     {/* Portfolio Tiles */}
+<Row className="justify-content-center" style={{ marginTop: '40px' }}>
+  {portfoliosWithPL
+    .map((portfolio, index) => (
+      <Col xs={12} sm={6} md={4} lg={3} key={portfolio.id}>
+        <Link to={`/portfolio/${portfolio.id}`} className="text-decoration-none">
+          <Card
+            className="text-center"
+            style={{
+              height: '210px',
+              width: '250px',
+              borderRadius: '16px',
+              marginTop: index >= 4 ? '40px' : '0px',
+              marginBottom: '0px',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-5px)';
+              e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '';
+            }}
+          >
+            <Card.Header
+              style={{
+                height: '60px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                padding: '0.5rem',
+                flex: 'none'
+              }}
+            >
+              <h5 
+                className="text-primary" 
+                style={{ 
+                  margin: 0, 
+                  textAlign: 'center',
+                  fontSize: '1.12rem',
+                  lineHeight: '1.2',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  maxWidth: '100%'
+                }}
+              >
+                {portfolio.name}
+              </h5>
             </Card.Header>
-            <Card.Body>
-              <p>
-                This portfolio is ...
+
+            <Card.Body 
+              style={{ 
+                overflow: 'hidden',
+                flex: '1',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                padding: '0.75rem'
+              }}
+            >
+              <p style={{ 
+                fontSize: '0.9rem', 
+                color: '#666',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                lineHeight: '1.3',
+                maxHeight: '2.6em',
+                marginBottom: '10px'
+              }}>
+                {portfolio.description || 'Portfolio details'}
               </p>
-              {/* Example stats */}
               <div>
-                <div><strong>Value:</strong> $25,000</div>
-                <div><strong>Stocks:</strong> 12</div>
-                <div><strong>Performance:</strong> <span style={{ color: 'green' }}>+8.5%</span></div>
+                <div><strong>Value:</strong> {formatCurrency(portfolio.total_value)}</div>
+                <div><strong>Holdings:</strong> {portfolio.holdings_count}</div>
+                {portfolio.profit_loss_percentage !== undefined && (
+                  <div>
+                    <strong>Performance:</strong>
+                    <span
+                      className={portfolio.profit_loss_percentage >= 0 ? 'text-success' : 'text-danger'}
+                      style={{ marginLeft: '5px' }}
+                    >
+                      {formatPercentage(portfolio.profit_loss_percentage)}
+                    </span>
+                  </div>
+                )}
               </div>
             </Card.Body>
           </Card>
-        </Col>
+        </Link>
+      </Col>
+    ))}
+</Row>
 
-   {/* Dividend Income Portfolio */}
-  <Col xs={12} sm={6} md={4} lg={3}>
-    <Card className="mb-4 text-center" style={{ minHeight: '180px', maxWidth: '250px', borderRadius: '16px', marginLeft: '0' }}>
-      <Card.Header>
-        <h5>Dividend Income Portfolio</h5>
-      </Card.Header>
-      <Card.Body>
-        <p>
-          This portfolio is ...
-        </p>
-        {/* Example stats */}
-        <div>
-          <div><strong>Value:</strong> $30,000</div>
-          <div><strong>Stocks:</strong> 10</div>
-          <div><strong>Performance:</strong> <span style={{ color: 'green' }}>+6.8%</span></div>
-        </div>
-      </Card.Body>
-    </Card>
-  </Col>
-
-
-      </Row>
     </div>
   );
 };
