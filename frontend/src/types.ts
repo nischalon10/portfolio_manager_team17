@@ -20,6 +20,8 @@ export interface Stock {
   total_value_held: number;
   total_cost_basis?: number; // Total cost basis for P&L calculation
   profit_loss_percentage?: number; //P&L percentage for watchlist display
+  daily_change_percentage?: number; // Daily market change percentage
+  previous_close_price?: number; // Previous day's closing price
 }
 
 export interface Holding {
