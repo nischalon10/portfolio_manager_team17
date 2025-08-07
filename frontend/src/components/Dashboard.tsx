@@ -36,6 +36,10 @@ const Dashboard: React.FC = () => {
     portfolio_value: true,
     account_balance: true,
   });
+  const [realizedPL, setRealizedPL] = useState({ amount: 0, percentage: 0 });
+  const [totalPL, setTotalPL] = useState({ amount: 0, percentage: 0 });
+  const [totalInvested, setTotalInvested] = useState(0);
+  const [totalHoldings, setTotalHoldings] = useState(0);
 
   // Define interface for enhanced portfolio
   interface PortfolioWithPL {
@@ -62,8 +66,21 @@ const Dashboard: React.FC = () => {
           portfolioAPI.getNetWorthHistory(30),
           portfolioAPI.getWatchlist(),
         ]);
+        
         setDashboardData(dashboard);
         setNetWorthHistory(history);
+
+        // Set P&L data from backend calculations
+        setRealizedPL({ 
+          amount: dashboard.realized_profit_loss, 
+          percentage: dashboard.realized_pl_percentage 
+        });
+        setTotalPL({ 
+          amount: dashboard.total_pl_amount, 
+          percentage: dashboard.total_pl_percentage 
+        });
+        setTotalInvested(dashboard.total_invested);
+        setTotalHoldings(dashboard.total_holdings);
 
         // Get detailed portfolio data for P&L calculation
         const portfoliosWithHoldings = dashboard.portfolios.filter(
@@ -204,55 +221,134 @@ const Dashboard: React.FC = () => {
 
       {/* Summary Cards */}
       <Row className="mb-4">
+        {/* Card 1: Account Stats */}
         <Col md={3}>
           <Card className="text-center h-100">
+            <Card.Header>
+              <h6 className="mb-0 text-muted">💰 Account Stats</h6>
+            </Card.Header>
             <Card.Body>
-              <Card.Title>Account Balance</Card.Title>
-              <h3 className="text-primary">
-                {formatCurrency(dashboardData.account_balance)}
-              </h3>
+              <div className="mb-2">
+                <small className="text-muted d-block">Cash in Account (Buy Power)</small>
+                <h5 className="text-primary mb-0">
+                  {formatCurrency(dashboardData.account_balance)}
+                </h5>
+              </div>
+              <div className="mb-2">
+                <small className="text-muted d-block">Value Invested (Assets)</small>
+                <h6 className="text-info mb-0">
+                  {formatCurrency(totalInvested)}
+                </h6>
+              </div>
+              <div>
+                <small className="text-muted d-block">Number of Holdings</small>
+                <h6 className="text-secondary mb-0">
+                  {totalHoldings} positions
+                </h6>
+              </div>
             </Card.Body>
           </Card>
         </Col>
+
+        {/* Card 2: Unrealized P&L */}
         <Col md={3}>
           <Card className="text-center h-100">
+            <Card.Header>
+              <h6 className="mb-0 text-muted">📈 Unrealized</h6>
+            </Card.Header>
             <Card.Body>
-              <Card.Title>Portfolio Value</Card.Title>
-              <h3 className="text-success">
-                {formatCurrency(dashboardData.total_value)}
-              </h3>
+              <div className="mb-3">
+                <small className="text-muted d-block">Unrealized P&L</small>
+                <h4
+                  className={
+                    dashboardData.total_profit_loss >= 0
+                      ? "text-success"
+                      : "text-danger"
+                  }
+                >
+                  {formatCurrency(dashboardData.total_profit_loss)}
+                </h4>
+              </div>
+              <div>
+                <small className="text-muted d-block">Unrealized P&L %</small>
+                <h5
+                  className={
+                    dashboardData.profit_loss_percentage >= 0
+                      ? "text-success"
+                      : "text-danger"
+                  }
+                >
+                  {formatPercentage(dashboardData.profit_loss_percentage)}
+                </h5>
+              </div>
             </Card.Body>
           </Card>
         </Col>
+
+        {/* Card 3: Realized P&L */}
         <Col md={3}>
           <Card className="text-center h-100">
+            <Card.Header>
+              <h6 className="mb-0 text-muted">💎 Realized</h6>
+            </Card.Header>
             <Card.Body>
-              <Card.Title>Total P&L</Card.Title>
-              <h3
-                className={
-                  dashboardData.total_profit_loss >= 0
-                    ? "text-success"
-                    : "text-danger"
-                }
-              >
-                {formatCurrency(dashboardData.total_profit_loss)}
-              </h3>
+              <div className="mb-3">
+                <small className="text-muted d-block">Realized P&L</small>
+                <h4
+                  className={
+                    realizedPL.amount >= 0
+                      ? "text-success"
+                      : "text-danger"
+                  }
+                >
+                  {formatCurrency(realizedPL.amount)}
+                </h4>
+              </div>
+              <div>
+                <small className="text-muted d-block">Realized P&L %</small>
+                <h5
+                  className={
+                    realizedPL.percentage >= 0
+                      ? "text-success"
+                      : "text-danger"
+                  }
+                >
+                  {formatPercentage(realizedPL.percentage)}
+                </h5>
+              </div>
             </Card.Body>
           </Card>
         </Col>
+
+        {/* Card 4: Total P&L */}
         <Col md={3}>
           <Card className="text-center h-100">
+            <Card.Header>
+              <h6 className="mb-0 text-muted">🎯 Total</h6>
+            </Card.Header>
             <Card.Body>
-              <Card.Title>P&L %</Card.Title>
-              <h3
-                className={
-                  dashboardData.profit_loss_percentage >= 0
-                    ? "text-success"
-                    : "text-danger"
-                }
-              >
-                {formatPercentage(dashboardData.profit_loss_percentage)}
-              </h3>
+              <div className="mb-3">
+                <small className="text-muted d-block">Total P&L</small>
+                <h4
+                  className={
+                    (totalPL.amount) >= 0
+                      ? "text-success"
+                      : "text-danger"
+                  }
+                >
+                  {formatCurrency(totalPL.amount)}
+                </h4>
+              </div>
+              <div>
+                <small className="text-muted d-block">Total P&L %</small>
+                <h5
+                  className={
+                    totalPL.percentage >= 0 ? "text-success" : "text-danger"
+                  }
+                >
+                  {formatPercentage(totalPL.percentage)}
+                </h5>
+              </div>
             </Card.Body>
           </Card>
         </Col>

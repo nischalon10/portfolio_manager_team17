@@ -73,10 +73,20 @@ export interface StockDetail {
 export interface DashboardData {
   portfolios: Portfolio[];
   total_value: number;
+  // Unrealized P&L
   total_profit_loss: number;
   profit_loss_percentage: number;
   total_cost_basis: number;
+  // Realized P&L
+  realized_profit_loss: number;
+  realized_pl_percentage: number;
+  // Total P&L
+  total_pl_amount: number;
+  total_pl_percentage: number;
+  // Account and investment metrics
   account_balance: number;
+  total_invested: number;
+  total_holdings: number;
   recent_transactions: Transaction[];
 }
 

@@ -152,6 +152,9 @@ const Stocks: React.FC = () => {
     inputType: 'shares' as 'amount' | 'shares'
   });
 
+  // Watchlist state
+  const [watchlistLoading, setWatchlistLoading] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -383,6 +386,45 @@ const Stocks: React.FC = () => {
     }
   };
 
+  const handleWatchlistToggle = async (stock: Stock) => {
+    try {
+      setWatchlistLoading(prev => new Set(prev).add(stock.symbol));
+      
+      if (stock.watchlist) {
+        await portfolioAPI.removeFromWatchlist(stock.symbol);
+      } else {
+        await portfolioAPI.addToWatchlist(stock.symbol);
+      }
+
+      // Update the stock in the local state
+      setStocks(prevStocks =>
+        prevStocks.map(s =>
+          s.symbol === stock.symbol
+            ? { ...s, watchlist: !s.watchlist }
+            : s
+        )
+      );
+
+      // Update filtered stocks as well
+      setFilteredStocks(prevFilteredStocks =>
+        prevFilteredStocks.map(s =>
+          s.symbol === stock.symbol
+            ? { ...s, watchlist: !s.watchlist }
+            : s
+        )
+      );
+    } catch (err: any) {
+      console.error('Failed to toggle watchlist:', err);
+      // You could add a toast notification here if desired
+    } finally {
+      setWatchlistLoading(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(stock.symbol);
+        return newSet;
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center mt-5">
@@ -408,7 +450,7 @@ const Stocks: React.FC = () => {
         {/* WebSocket Status Indicator */}
         <div className="d-flex align-items-center">
           {wsError && (
-              <span className="m-2" title={wsError}>
+              <span className="m-2  " title={wsError}>
                 ❌ Connection Error
               </span>
           )}
@@ -513,10 +555,33 @@ const Stocks: React.FC = () => {
                         <Button
                           variant="danger"
                           size="sm"
+                          className="me-2"
                           disabled={!stock.total_shares_held || stock.total_shares_held <= 0}
                           onClick={() => openTradeModal(stock, 'SELL')}
                         >
                           Sell
+                        </Button>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          disabled={watchlistLoading.has(stock.symbol)}
+                          onClick={() => handleWatchlistToggle(stock)}
+                          title={stock.watchlist ? "Remove from watchlist" : "Add to watchlist"}
+                          style={{ 
+                            border: 'none', 
+                            padding: '0.25rem 0.5rem',
+                            fontSize: '1.2rem',
+                            color: stock.watchlist ? '#ffc107' : '#6c757d',
+                            textDecoration: 'none'
+                          }}
+                        >
+                          {watchlistLoading.has(stock.symbol) ? (
+                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                          ) : stock.watchlist ? (
+                            "★"
+                          ) : (
+                            "☆"
+                          )}
                         </Button>
                       </td>
                     </tr>

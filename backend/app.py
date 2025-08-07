@@ -85,6 +85,115 @@ def record_net_worth_snapshot():
     conn.close()
 
 
+def calculate_realized_pl():
+    """Calculate realized profit/loss using FIFO method"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Get all transactions sorted by timestamp
+    cursor.execute('''
+        SELECT t.type, s.symbol, t.quantity, t.price, t.timestamp
+        FROM transactions t
+        JOIN stocks s ON t.stock_id = s.id
+        ORDER BY s.symbol, t.timestamp ASC
+    ''')
+    transactions = cursor.fetchall()
+    conn.close()
+    
+    # Group transactions by symbol
+    transactions_by_symbol = {}
+    for transaction in transactions:
+        symbol = transaction[1]
+        if symbol not in transactions_by_symbol:
+            transactions_by_symbol[symbol] = []
+        transactions_by_symbol[symbol].append({
+            'type': transaction[0],
+            'quantity': transaction[2],
+            'price': float(transaction[3]),
+            'timestamp': transaction[4]
+        })
+    
+    total_realized_pl = 0.0
+    total_sold_value = 0.0
+    total_sold_cost_basis = 0.0
+    
+    # Calculate realized P&L using FIFO method for each symbol
+    for symbol, symbol_transactions in transactions_by_symbol.items():
+        remaining_shares = []  # Queue of shares with their buy prices
+        
+        for transaction in symbol_transactions:
+            if transaction['type'] == 'BUY':
+                remaining_shares.append({
+                    'quantity': transaction['quantity'],
+                    'price': transaction['price']
+                })
+            elif transaction['type'] == 'SELL':
+                sell_quantity = transaction['quantity']
+                sell_value = sell_quantity * transaction['price']
+                cost_basis = 0.0
+                
+                # Calculate cost basis using FIFO
+                while sell_quantity > 0 and remaining_shares:
+                    oldest_share = remaining_shares[0]
+                    quantity_to_sell = min(sell_quantity, oldest_share['quantity'])
+                    
+                    cost_basis += quantity_to_sell * oldest_share['price']
+                    sell_quantity -= quantity_to_sell
+                    oldest_share['quantity'] -= quantity_to_sell
+                    
+                    if oldest_share['quantity'] == 0:
+                        remaining_shares.pop(0)
+                
+                realized_pl = sell_value - cost_basis
+                total_realized_pl += realized_pl
+                total_sold_value += sell_value
+                total_sold_cost_basis += cost_basis
+    
+    # Calculate realized P&L percentage
+    realized_pl_percentage = 0.0
+    if total_sold_cost_basis > 0:
+        realized_pl_percentage = (total_realized_pl / total_sold_cost_basis) * 100
+    
+    return {
+        'amount': total_realized_pl,
+        'percentage': realized_pl_percentage,
+        'total_sold_value': total_sold_value,
+        'total_sold_cost_basis': total_sold_cost_basis
+    }
+
+
+def calculate_total_invested():
+    """Calculate total amount invested (current cost basis + sold cost basis)"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Get current cost basis
+    cursor.execute('''
+        SELECT COALESCE(SUM(h.quantity * h.avg_buy_price), 0) as current_cost_basis
+        FROM holdings h
+    ''')
+    current_cost_basis = float(cursor.fetchone()[0])
+    conn.close()
+    
+    # Get realized P&L data which includes sold cost basis
+    realized_data = calculate_realized_pl()
+    total_invested = current_cost_basis + realized_data['total_sold_cost_basis']
+    
+    return total_invested
+
+
+def get_total_holdings_count():
+    """Get total number of holdings across all portfolios"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT COUNT(*) FROM holdings')
+    total_holdings = cursor.fetchone()[0]
+    conn.close()
+    
+    return total_holdings
+
+
 def init_db():
     """Initialize database if it doesn't exist"""
     try:
@@ -548,7 +657,7 @@ def get_transactions():
 
 @app.route('/api/dashboard', methods=['GET'])
 def get_dashboard():
-    """Get dashboard data"""
+    """Get dashboard data with calculated P&L metrics"""
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -573,7 +682,7 @@ def get_dashboard():
     ''')
     total_value = cursor.fetchone()[0]
 
-    # Get total cost basis and profit/loss
+    # Get unrealized profit/loss data
     cursor.execute('''
         SELECT 
             COALESCE(SUM(h.quantity * h.avg_buy_price), 0) as total_cost_basis,
@@ -586,12 +695,27 @@ def get_dashboard():
 
     total_cost_basis = float(profit_loss_data[0])
     total_current_value = float(profit_loss_data[1])
-    total_profit_loss = float(profit_loss_data[2])
+    unrealized_profit_loss = float(profit_loss_data[2])
 
-    # Calculate profit/loss percentage
-    profit_loss_percentage = 0.0
+    # Calculate unrealized profit/loss percentage
+    unrealized_pl_percentage = 0.0
     if total_cost_basis > 0:
-        profit_loss_percentage = (total_profit_loss / total_cost_basis) * 100
+        unrealized_pl_percentage = (unrealized_profit_loss / total_cost_basis) * 100
+
+    # Calculate realized P&L using FIFO method
+    realized_pl_data = calculate_realized_pl()
+    
+    # Calculate total invested amount
+    total_invested = calculate_total_invested()
+    
+    # Get total holdings count
+    total_holdings = get_total_holdings_count()
+    
+    # Calculate total P&L and percentage
+    total_pl_amount = unrealized_profit_loss + realized_pl_data['amount']
+    total_pl_percentage = 0.0
+    if total_invested > 0:
+        total_pl_percentage = (total_pl_amount / total_invested) * 100
 
     # Get recent transactions
     cursor.execute('''
@@ -615,10 +739,20 @@ def get_dashboard():
             'total_value': float(row[4])
         } for row in portfolios],
         'total_value': float(total_value),
-        'total_profit_loss': total_profit_loss,
-        'profit_loss_percentage': profit_loss_percentage,
+        # Unrealized P&L
+        'total_profit_loss': unrealized_profit_loss,
+        'profit_loss_percentage': unrealized_pl_percentage,
         'total_cost_basis': total_cost_basis,
+        # Realized P&L
+        'realized_profit_loss': realized_pl_data['amount'],
+        'realized_pl_percentage': realized_pl_data['percentage'],
+        # Total P&L
+        'total_pl_amount': total_pl_amount,
+        'total_pl_percentage': total_pl_percentage,
+        # Account and investment metrics
         'account_balance': get_account_balance(),
+        'total_invested': total_invested,
+        'total_holdings': total_holdings,
         'recent_transactions': [{
             'type': row[0],
             'symbol': row[1],

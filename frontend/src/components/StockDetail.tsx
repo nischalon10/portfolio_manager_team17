@@ -128,7 +128,6 @@ const StockDetailComponent: React.FC = () => {
   const [tradeLoading, setTradeLoading] = useState(false);
   const [tradeError, setTradeError] = useState<string | null>(null);
   const [tradeSuccess, setTradeSuccess] = useState<string | null>(null);
-  const [watchlistLoading, setWatchlistLoading] = useState(false);
   const [accountBalance, setAccountBalance] = useState<number>(0);
   const [tradeType, setTradeType] = useState<'BUY' | 'SELL'>('BUY');
 
@@ -261,31 +260,6 @@ const StockDetailComponent: React.FC = () => {
       setTradeError(err.response?.data?.error || `Failed to ${tradeType.toLowerCase()} stock`);
     } finally {
       setTradeLoading(false);
-    }
-  };
-
-  const handleWatchlistToggle = async () => {
-    if (!symbol || !stockDetail) return;
-
-    try {
-      setWatchlistLoading(true);
-      setTradeError(null);
-
-      if (stockDetail.stock.watchlist) {
-        await portfolioAPI.removeFromWatchlist(symbol);
-        setTradeSuccess(`${symbol.toUpperCase()} removed from watchlist`);
-      } else {
-        await portfolioAPI.addToWatchlist(symbol);
-        setTradeSuccess(`${symbol.toUpperCase()} added to watchlist`);
-      }
-
-      // Refresh stock detail to update watchlist status
-      const updatedStock = await portfolioAPI.getStockDetail(symbol);
-      setStockDetail(updatedStock);
-    } catch (err: any) {
-      setTradeError(err.response?.data?.error || 'Failed to update watchlist');
-    } finally {
-      setWatchlistLoading(false);
     }
   };
 
@@ -630,25 +604,6 @@ const StockDetailComponent: React.FC = () => {
                 >
                   {tradeLoading ? 'Processing...' : tradeType === 'BUY' ? 'Buy Stock' : 'Sell Stock'}
                 </Button>
-
-                {/* Watchlist Button */}
-                <div className="mt-3">
-                  <Button
-                    variant={stockDetail.stock.watchlist ? "outline-danger" : "outline-success"}
-                    onClick={handleWatchlistToggle}
-                    disabled={watchlistLoading}
-                    className="w-100"
-                    size="sm"
-                  >
-                    {watchlistLoading ? (
-                      'Updating...'
-                    ) : stockDetail.stock.watchlist ? (
-                      '★ Remove from Watchlist'
-                    ) : (
-                      '☆ Add to Watchlist'
-                    )}
-                  </Button>
-                </div>
               </div>
             </Card.Body>
           </Card>
