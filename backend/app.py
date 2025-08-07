@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask_socketio import SocketIO, emit
 import pymysql
 import os
 from datetime import datetime
@@ -9,7 +10,8 @@ import time
 import yfinance as yf
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app, origins="*")  # Enable CORS for all routes
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # MySQL connection configuration
 DB_CONFIG = {
@@ -882,6 +884,29 @@ def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
 
+# WebSocket Events
+@socketio.on('connect')
+def handle_connect():
+    """Handle client connection"""
+    print(f'Client connected: {request.sid}')
+    emit('status', {'message': 'Connected to stock data stream'})
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Handle client disconnection"""
+    print(f'Client disconnected: {request.sid}')
+
+@socketio.on('subscribe_stocks')
+def handle_subscribe_stocks(data):
+    """Handle stock subscription requests"""
+    symbols = data.get('symbols', [])
+    print(f'Client {request.sid} subscribed to stocks: {symbols}')
+    emit('status', {'message': f'Subscribed to {len(symbols)} stocks'})
+
+# Global variable to store socketio instance for use in other modules
+app.socketio = socketio
+
+
 if __name__ == '__main__':
     # Initialize database if needed
     init_db()
@@ -889,5 +914,15 @@ if __name__ == '__main__':
     # keep_only_first_30_sp500()
     # start_stock_updater(interval=60)
 
-    # Run the Flask app
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    # Import and start the live stock tracker
+    from live_stock_tracker_websocket import start_stock_tracker, set_socketio_instance
+    
+    # Set the socketio instance for the stock tracker
+    set_socketio_instance(socketio)
+    
+    # Start the stock tracker in background
+    start_stock_tracker()
+    print("Live stock tracker with WebSocket integration started!")
+
+    # Run the Flask app with SocketIO
+    socketio.run(app, debug=True, host='0.0.0.0', port=5001)

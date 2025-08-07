@@ -260,3 +260,79 @@
   background-color: #f0f0f0 !important;
   color: #000000 !important;
 }
+
+/* Stock price update animations and styles */
+.stock-price-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stock-price {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+  background-color: transparent;
+  font-weight: 500;
+}
+
+.stock-price.positive {
+  border-color: #198754;
+  color: #198754;
+}
+
+.stock-price.negative {
+  border-color: #dc3545;
+  color: #dc3545;
+}
+
+.stock-price.neutral {
+  border-color: #6c757d;
+  color: #6c757d;
+}
+
+.stock-price.pulse {
+  animation: pricePulse 0.6s ease-in-out;
+}
+
+@keyframes pricePulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 8px rgba(25, 135, 84, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(25, 135, 84, 0);
+  }
+}
+
+.stock-price.pulse.negative {
+  animation: pricePulseNegative 0.6s ease-in-out;
+}
+
+@keyframes pricePulseNegative {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 8px rgba(220, 53, 69, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+  }
+}
+
+.stock-change {
+  font-size: 0.875rem;
+  white-space: nowrap;
+  min-width: 80px;
+}

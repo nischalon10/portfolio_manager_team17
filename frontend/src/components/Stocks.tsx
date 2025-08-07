@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Row, Col, Card, Table, Alert, Spinner, InputGroup, FormControl, Button, Modal, Form, ButtonGroup } from 'react-bootstrap';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
+import { useWebSocket } from '../contexts/WebSocketContext';
 import portfolioAPI from '../api';
 import { Stock, Portfolio, TradeRequest } from '../types';
 
@@ -118,8 +119,11 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
       }}
     />
   );
-}; const Stocks: React.FC = () => {
+}; 
+
+const Stocks: React.FC = () => {
   const { isDarkMode } = useTheme();
+  const { stockUpdates, isConnected, subscribeToStocks, error: wsError } = useWebSocket();
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [filteredStocks, setFilteredStocks] = useState<Stock[]>([]);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
@@ -128,6 +132,10 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
   const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [accountBalance, setAccountBalance] = useState<number>(0);
+  
+  // Track pulsing animations and previous prices
+  const [pulsingStocks, setPulsingStocks] = useState<Set<string>>(new Set());
+  const [previousPrices, setPreviousPrices] = useState<{ [symbol: string]: number }>({});
 
   // Quick trade modal state
   const [showTradeModal, setShowTradeModal] = useState(false);
@@ -175,6 +183,55 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
 
     fetchData();
   }, [searchParams, setSearchParams]);
+
+  // Subscribe to WebSocket updates for all stocks
+  useEffect(() => {
+    if (stocks.length > 0) {
+      const symbols = stocks.map(stock => stock.symbol);
+      subscribeToStocks(symbols);
+    }
+  }, [stocks, subscribeToStocks]);
+
+  // Update stock prices from WebSocket data
+  useEffect(() => {
+    if (Object.keys(stockUpdates).length > 0) {
+      setStocks(prevStocks => 
+        prevStocks.map(stock => {
+          const update = stockUpdates[stock.symbol];
+          if (update) {
+            // Check if price changed to trigger pulse animation
+            const prevPrice = previousPrices[stock.symbol];
+            if (prevPrice !== undefined && prevPrice !== update.price) {
+              // Trigger pulse animation
+              setPulsingStocks(prev => new Set(prev).add(stock.symbol));
+              
+              // Remove pulse class after animation duration
+              setTimeout(() => {
+                setPulsingStocks(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(stock.symbol);
+                  return newSet;
+                });
+              }, 600);
+            }
+            
+            // Update previous price
+            setPreviousPrices(prev => ({
+              ...prev,
+              [stock.symbol]: update.price
+            }));
+            
+            return {
+              ...stock,
+              current_price: update.price,
+              change_percent: update.change_percent
+            };
+          }
+          return stock;
+        })
+      );
+    }
+  }, [stockUpdates, previousPrices]);
 
   useEffect(() => {
     if (searchTerm.trim() === '') {
@@ -347,6 +404,25 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
       {/* Header Section */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>📈 All Stocks ({filteredStocks.length})</h2>
+        
+        {/* WebSocket Status Indicator */}
+        <div className="d-flex align-items-center">
+          {wsError && (
+              <span className="m-2" title={wsError}>
+                ❌ Connection Error
+              </span>
+          )}
+          <span 
+            className={`badge ${isConnected ? 'bg-success' : 'bg-warning'} me-2`}
+            title={isConnected ? 'Connected to live data' : 'Connecting to live data...'}
+          >
+            {isConnected ? (
+              <div className='p-2'>🟢 Live Data</div>
+            ) : (
+              <div className='p-2'>🟡 Connecting...</div>
+            )}
+          </span>
+        </div>
       </div>
 
       {/* Stocks Content */}
@@ -368,8 +444,8 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
                 <thead style={{ 
                   borderBottom: '1px solid ' + (isDarkMode ? 'rgba(35, 34, 34, 0.3)' : 'rgba(0,0,0,0.2)')
                 }}>
-                  <tr>
-                    <th className={`border-0 py-3 px-4 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Logo</th>
+                  <tr className="text-center">
+                    <th className={`border-0 py-3 px-4 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}></th>
                     <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Symbol</th>
                     <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Name</th>
                     <th className={`border-0 py-3 ${isDarkMode ? 'stocks-table-header-dark' : 'stocks-table-header-light'}`}>Current Price</th>
@@ -393,17 +469,39 @@ const StockLogo: React.FC<{ symbol: string; name: string; size?: number }> = ({
                         </Link>
                       </td>
                       <td className="align-middle">{stock.name}</td>
-                      <td className="align-middle">{formatCurrency(stock.current_price)}</td>
-                      <td className="align-middle">{stock.total_shares_held || 0}</td>
+                      <td className="align-middle">
+                        <div className="stock-price-container d-flex justify-content-between align-items-center">
+                          <span 
+                            className={`stock-price ${pulsingStocks.has(stock.symbol) ? 'pulse' : ''}`}
+                          >
+                            {formatCurrency(stock.current_price)}
+                          </span>
+                          {stockUpdates[stock.symbol] && (
+                            <span 
+                              className={`stock-change text-end ${
+                                stockUpdates[stock.symbol].change_percent > 0 
+                                  ? 'text-success' 
+                                  : stockUpdates[stock.symbol].change_percent < 0 
+                                    ? 'text-danger' 
+                                    : 'text-muted'
+                              }`}
+                            >
+                              {stockUpdates[stock.symbol].change_percent.toFixed(2)}%
+                              {stockUpdates[stock.symbol].change_percent > 0 ? ' ↑ ' : stockUpdates[stock.symbol].change_percent < 0 ? ' ↓ ' : ' = '}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="align-middle text-end">{stock.total_shares_held || 0}</td>
                       <td 
-                        className="align-middle fw-bold" 
+                        className="align-middle fw-bold text-end" 
                         style={{ 
                           color: (stock.total_shares_held && stock.total_shares_held > 0) ? '#198754' : 'inherit' 
                         }}
                       >
                         {formatCurrency((stock.total_shares_held || 0) * stock.current_price)}
                       </td>
-                      <td className="align-middle">
+                      <td className="align-middle text-center">
                         <Button
                           variant="success"
                           size="sm"
