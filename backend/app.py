@@ -503,7 +503,7 @@ def buy_stock(symbol):
         if existing_holding:
             # Update existing holding - calculate new average price
             old_quantity = existing_holding[1]
-            old_avg_price = existing_holding[2]
+            old_avg_price = float(existing_holding[2])  # Convert Decimal to float
             new_quantity = old_quantity + quantity
             new_avg_price = ((old_quantity * old_avg_price) +
                              (quantity * price)) / new_quantity
