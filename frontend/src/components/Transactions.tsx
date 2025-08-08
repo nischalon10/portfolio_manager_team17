@@ -3,8 +3,10 @@ import { Card, Table, Alert, Spinner, Badge, InputGroup, FormControl, Row, Col }
 import { Link } from 'react-router-dom';
 import portfolioAPI from '../api';
 import { Transaction } from '../types';
+import { useTheme } from '../contexts/ThemeContext';
 
 const Transactions: React.FC = () => {
+  const { isDarkMode } = useTheme();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -83,11 +85,11 @@ const Transactions: React.FC = () => {
       <style>
         {`
           .form-control::placeholder {
-            color: #6c757d !important;
+            color: ${isDarkMode ? '#adb5bd' : '#6c757d'} !important;
             opacity: 0.7;
           }
           .form-control:focus::placeholder {
-            color: #adb5bd !important;
+            color: ${isDarkMode ? '#ced4da' : '#adb5bd'} !important;
           }
         `}
       </style>
@@ -101,12 +103,6 @@ const Transactions: React.FC = () => {
               placeholder="Search by symbol, name, or portfolio..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                borderRadius: '8px',
-                border: '1px solid #e9ecef',
-                padding: '12px 16px',
-                fontSize: '14px'
-              }}
               className="form-control"
             />
           </InputGroup>
@@ -117,14 +113,9 @@ const Transactions: React.FC = () => {
             value={filterType}
             onChange={(e) => setFilterType(e.target.value as 'ALL' | 'BUY' | 'SELL')}
             style={{
-              borderRadius: '8px',
-              border: '1px solid #e9ecef',
-              padding: '12px 16px',
-              fontSize: '14px',
               textAlign: 'right' as const,
-              backgroundColor: '#fff',
               appearance: 'none',
-              backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6,9 12,15 18,9\'%3e%3c/polyline%3e%3c/svg%3e")',
+              backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${isDarkMode ? '%23ffffff' : '%23000000'}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e")`,
               backgroundRepeat: 'no-repeat',
               backgroundPosition: 'left 12px center',
               backgroundSize: '16px',

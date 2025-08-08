@@ -945,9 +945,9 @@ def create_portfolio():
 
     try:
         cursor.execute('''
-            INSERT INTO portfolios (name, description, created_at)
-            VALUES (%s, %s, %s)
-        ''', (name, description, datetime.now()))
+            INSERT INTO portfolios (name, description)
+            VALUES (%s, %s)
+        ''', (name, description))
 
         portfolio_id = cursor.lastrowid
         conn.commit()

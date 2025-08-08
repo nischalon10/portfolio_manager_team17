@@ -76,6 +76,17 @@
   color: #ffffff;
 }
 
+.dark-mode .form-select option {
+  background-color: #2d2d2d;
+  color: #ffffff;
+}
+
+.dark-mode .input-group .form-control {
+  background-color: #2d2d2d;
+  border-color: #404040;
+  color: #ffffff;
+}
+
 .dark-mode .btn-outline-primary {
   color: #6ea8fe;
   border-color: #6ea8fe;
